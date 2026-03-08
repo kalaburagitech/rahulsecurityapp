@@ -28,6 +28,12 @@ export const createPoint = mutation({
     },
 });
 
+export const listAll = query({
+    handler: async (ctx) => {
+        return await ctx.db.query("patrolPoints").collect();
+    },
+});
+
 export const listByOrg = query({
     args: { organizationId: v.id("organizations") },
     handler: async (ctx, args) => {

@@ -105,6 +105,12 @@ export const remove = mutation({
     },
 });
 
+export const listAll = query({
+    handler: async (ctx) => {
+        return await ctx.db.query("users").collect();
+    },
+});
+
 export const listByOrg = query({
     args: { organizationId: v.id("organizations") },
     handler: async (ctx, args) => {

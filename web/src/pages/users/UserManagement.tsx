@@ -53,11 +53,15 @@ export default function UserManagement() {
     const sites = useQuery(api.sites.listSitesByOrg,
         activeOrgId ? { organizationId: activeOrgId as Id<"organizations"> } : "skip"
     );
-    const users = useQuery(api.users.listByOrg,
+    const allUsers = useQuery((api.users as any).listAll);
+    const orgUsers = useQuery((api.users as any).listByOrg,
         organizationId ? { organizationId } : "skip"
     );
 
-    const filteredUsers = users?.filter(u =>
+    const isSuperAdmin = currentUser?.role === "Owner" || currentUser?.role === "Deployment Manager";
+    const users = isSuperAdmin ? allUsers : orgUsers;
+
+    const filteredUsers = users?.filter((u: any) =>
         u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         u.role.toLowerCase().includes(searchQuery.toLowerCase())
     );

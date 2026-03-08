@@ -28,12 +28,18 @@ export default function PatrolPoints() {
     const organizationId = currentUser?.organizationId;
     const orgs = useQuery(api.organizations.list);
 
-    const sites = useQuery(api.sites.listSitesByOrg,
+    const sitesList = useQuery((api.sites as any).listSitesByOrg,
         (organizationId || (selectedOrgId as Id<"organizations">)) ? { organizationId: (organizationId || selectedOrgId) as Id<"organizations"> } : "skip"
     );
-    const allPoints = useQuery(api.patrolPoints.listByOrg,
+    const allSites = useQuery((api.sites as any).listAll);
+    const isSuperAdmin = currentUser?.role === "Owner" || currentUser?.role === "Deployment Manager";
+    const sites = isSuperAdmin ? allSites : sitesList;
+
+    const orgPoints = useQuery((api.patrolPoints as any).listByOrg,
         (organizationId || (selectedOrgId as Id<"organizations">)) ? { organizationId: (organizationId || selectedOrgId) as Id<"organizations"> } : "skip"
     );
+    const allPointsList = useQuery((api.patrolPoints as any).listAll);
+    const allPoints = isSuperAdmin ? allPointsList : orgPoints;
 
     const createPoint = useMutation(api.patrolPoints.createPoint);
     const updatePoint = useMutation(api.patrolPoints.updatePoint);
@@ -150,7 +156,7 @@ export default function PatrolPoints() {
         printWindow.document.close();
     };
 
-    const filteredPoints = allPoints?.filter(p => {
+    const filteredPoints = allPoints?.filter((p: any) => {
         const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesSite = selectedSiteId === "all" || p.siteId === selectedSiteId;
         return matchesSearch && matchesSite;
@@ -179,7 +185,9 @@ export default function PatrolPoints() {
                                 className="px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-primary/50 text-white/70"
                             >
                                 <option value="">Select Organization</option>
-                                {orgs?.map(o => <option key={o._id} value={o._id}>{o.name}</option>)}
+                                {orgs?.map((o: any) => (
+                                    <option key={o._id} value={o._id}>{o.name}</option>
+                                ))}
                             </select>
                         )}
 
@@ -189,7 +197,9 @@ export default function PatrolPoints() {
                             className="w-full sm:w-auto px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-primary/50 text-white/70"
                         >
                             <option value="all">All Sites</option>
-                            {sites?.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+                            {sites?.map((s: any) => (
+                                <option key={s._id} value={s._id}>{s.name}</option>
+                            ))}
                         </select>
                     </div>
                     <button
@@ -206,7 +216,7 @@ export default function PatrolPoints() {
                         <div className="col-span-full flex items-center justify-center py-20">
                             <Loader2 className="w-8 h-8 text-primary animate-spin" />
                         </div>
-                    ) : filteredPoints.map((point) => (
+                    ) : filteredPoints.map((point: any) => (
                         <div key={point._id} className="glass p-6 rounded-2xl border border-white/10 group hover:border-primary/50 transition-all relative">
                             <div className="flex justify-between items-start mb-4">
                                 <div className="p-4 rounded-xl bg-white flex items-center justify-center border border-white/10 overflow-hidden" id={`qr-${point._id}`}>
@@ -237,11 +247,11 @@ export default function PatrolPoints() {
                                 </div>
                             </div>
                             <h5 className="text-lg font-bold text-white/90">
-                                {sites?.find(s => s._id === point.siteId)?.name}_{point.name}
+                                {sites?.find((s: any) => s._id === point.siteId)?.name}_{point.name}
                             </h5>
                             <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
                                 <MapPin className="w-3.5 h-3.5" />
-                                {sites?.find(s => s._id === point.siteId)?.name || "Loading Site..."}
+                                {sites?.find((s: any) => s._id === point.siteId)?.name || "Loading Site..."}
                             </div>
                             <div className="mt-6 p-3 bg-white/5 rounded-xl border border-dashed border-white/10 text-center">
                                 <span className="text-[9px] font-mono text-muted-foreground uppercase tracking-widest break-all">Patrol Point Registered</span>
@@ -272,7 +282,7 @@ export default function PatrolPoints() {
                                     className="w-full px-4 py-2.5 bg-neutral-900 border border-white/10 rounded-xl focus:outline-none focus:ring-1 focus:ring-primary/50 text-white"
                                 >
                                     <option value="">Select a Site</option>
-                                    {sites?.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+                                    {sites?.map((s: any) => <option key={s._id} value={s._id}>{s.name}</option>)}
                                 </select>
                             </div>
                             <div>
@@ -341,7 +351,7 @@ export default function PatrolPoints() {
                                     className="w-full px-4 py-2.5 bg-neutral-900 border border-white/10 rounded-xl focus:outline-none focus:ring-1 focus:ring-primary/50 text-white"
                                 >
                                     <option value="">Select a Site</option>
-                                    {sites?.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+                                    {sites?.map((s: any) => <option key={s._id} value={s._id}>{s.name}</option>)}
                                 </select>
                             </div>
                             <div>
@@ -354,11 +364,11 @@ export default function PatrolPoints() {
                                 />
                             </div>
                             <div>
-                                <label className="text-xs font-medium text-muted-foreground uppercase mb-1 block">Identification Token (Internal)</label>
+                                <label className="text-xs font-medium text-muted-foreground uppercase mb-1 block">Reference QR Code</label>
                                 <input
                                     value={editingPoint.qrCode}
                                     readOnly
-                                    className="w-full px-4 py-2.5 bg-neutral-900/50 border border-white/5 rounded-xl text-muted-foreground font-mono text-sm cursor-not-allowed"
+                                    className="w-full px-4 py-2.5 bg-neutral-900/50 border border-white/10 rounded-xl text-muted-foreground font-mono text-sm"
                                 />
                             </div>
                             <div>
@@ -404,7 +414,6 @@ export default function PatrolPoints() {
                 </div>
             )}
 
-            {/* Delete Modal */}
             {isDeletingId && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
                     <div className="glass w-full max-w-sm rounded-2xl border border-white/10 p-6 space-y-4 text-center">
@@ -413,7 +422,7 @@ export default function PatrolPoints() {
                         </div>
                         <div className="space-y-2">
                             <h3 className="text-lg font-semibold text-white">Delete QR Point?</h3>
-                            <p className="text-sm text-muted-foreground">All patrol logs associated with this point will remain, but the point will be removed from the management list.</p>
+                            <p className="text-sm text-muted-foreground">All patrol logs associated with this point will remain, but the point will be removed.</p>
                         </div>
                         <div className="flex gap-3">
                             <button onClick={() => setIsDeletingId(null)} className="flex-1 py-2 bg-white/5 border border-white/10 rounded-xl text-sm font-medium hover:bg-white/10">Cancel</button>

@@ -11,7 +11,17 @@ import { toast } from "sonner";
 export default function SiteManagement() {
     const { user } = useUser();
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-    const [editingSite, setEditingSite] = useState<{ id: Id<"sites">; name: string; locationName: string; latitude: number; longitude: number; allowedRadius: number; shiftStart: string; shiftEnd: string } | null>(null);
+    const [editingSite, setEditingSite] = useState<{
+        id: Id<"sites">;
+        name: string;
+        locationName: string;
+        latitude: number;
+        longitude: number;
+        allowedRadius: number;
+        shiftStart: string;
+        shiftEnd: string;
+        organizationId: Id<"organizations">;
+    } | null>(null);
     const [isDeletingId, setIsDeletingId] = useState<Id<"sites"> | null>(null);
     const [searchQuery, setSearchQuery] = useState("");
 
@@ -44,9 +54,16 @@ export default function SiteManagement() {
 
     const organizationId = currentUser?.organizationId;
     const orgs = useQuery(api.organizations.list);
-    const sites = useQuery(api.sites.listSitesByOrg,
+
+    // Admins/Owners should see all sites, others only their org's sites
+    const allSites = useQuery(api.sites.listAll);
+    const orgSites = useQuery(api.sites.listSitesByOrg,
         organizationId ? { organizationId } : "skip"
     );
+
+    const isSuperAdmin = currentUser?.role === "Owner" || currentUser?.role === "Deployment Manager";
+    const sites = isSuperAdmin ? allSites : orgSites;
+
     const users = useQuery(api.users.listByOrg,
         organizationId ? { organizationId } : "skip"
     );
@@ -55,7 +72,6 @@ export default function SiteManagement() {
         s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         s.locationName.toLowerCase().includes(searchQuery.toLowerCase())
     );
-
     const handleAddSite = async () => {
         const orgIdToUse = organizationId || selectedOrgId;
         if (!orgIdToUse || !newName || !newLocation) {
@@ -146,6 +162,7 @@ export default function SiteManagement() {
                 latitude: editingSite.latitude,
                 longitude: editingSite.longitude,
                 allowedRadius: editingSite.allowedRadius,
+                organizationId: editingSite.organizationId,
                 shiftStart: editingSite.shiftStart,
                 shiftEnd: editingSite.shiftEnd
             });
@@ -184,7 +201,10 @@ export default function SiteManagement() {
                 <div className="space-y-6">
                     <div className="flex justify-end">
                         <button
-                            onClick={() => setIsAddModalOpen(true)}
+                            onClick={() => {
+                                setSelectedOrgId(organizationId || "");
+                                setIsAddModalOpen(true);
+                            }}
                             className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all shadow-[0_0_20px_rgba(37,99,235,0.3)]"
                         >
                             <Plus className="w-4 h-4" />
@@ -226,10 +246,10 @@ export default function SiteManagement() {
                                     <label className="text-xs font-medium text-muted-foreground uppercase">Organization</label>
                                     <div className="flex gap-2 mt-1">
                                         <select
-                                            value={organizationId || selectedOrgId}
+                                            id="org-select-new"
+                                            value={selectedOrgId}
                                             onChange={e => setSelectedOrgId(e.target.value)}
-                                            disabled={!!organizationId}
-                                            className="flex-1 px-4 py-2 bg-neutral-900 border border-white/10 rounded-xl focus:outline-none focus:ring-1 focus:ring-primary/50 disabled:opacity-50"
+                                            className="flex-1 px-4 py-2 bg-neutral-900 border border-white/10 rounded-xl focus:outline-none focus:ring-1 focus:ring-primary/50"
                                         >
                                             <option value="">Select Organization</option>
                                             {orgs?.map(o => <option key={o._id} value={o._id}>{o.name}</option>)}
@@ -317,7 +337,10 @@ export default function SiteManagement() {
                         </div>
                     </div>
                     <button
-                        onClick={() => setIsAddModalOpen(true)}
+                        onClick={() => {
+                            setSelectedOrgId(organizationId || "");
+                            setIsAddModalOpen(true);
+                        }}
                         className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all shadow-[0_0_20px_rgba(37,99,235,0.3)]"
                     >
                         <Plus className="w-4 h-4" />
@@ -371,7 +394,17 @@ export default function SiteManagement() {
                                             <td className="px-4 sm:px-6 py-4 text-right" onClick={e => e.stopPropagation()}>
                                                 <div className="flex items-center justify-end gap-1 sm:gap-2">
                                                     <button
-                                                        onClick={() => setEditingSite({ id: site._id, name: site.name, locationName: site.locationName, latitude: site.latitude, longitude: site.longitude, allowedRadius: site.allowedRadius, shiftStart: site.shiftStart || "08:00", shiftEnd: site.shiftEnd || "20:00" })}
+                                                        onClick={() => setEditingSite({
+                                                            id: site._id,
+                                                            name: site.name,
+                                                            locationName: site.locationName,
+                                                            latitude: site.latitude,
+                                                            longitude: site.longitude,
+                                                            allowedRadius: site.allowedRadius,
+                                                            shiftStart: site.shiftStart || "08:00",
+                                                            shiftEnd: site.shiftEnd || "20:00",
+                                                            organizationId: site.organizationId
+                                                        })}
                                                         className="p-1.5 sm:p-2 hover:bg-white/5 rounded-lg text-muted-foreground hover:text-primary transition-colors"
                                                     >
                                                         <Edit2 className="w-3.5 h-3.5 sm:w-4 h-4" />
@@ -565,10 +598,10 @@ export default function SiteManagement() {
                                 <label className="text-xs font-medium text-muted-foreground uppercase">Organization</label>
                                 <div className="flex gap-2 mt-1">
                                     <select
-                                        value={organizationId || selectedOrgId}
+                                        id="org-select-add"
+                                        value={selectedOrgId}
                                         onChange={e => setSelectedOrgId(e.target.value)}
-                                        disabled={!!organizationId}
-                                        className="flex-1 px-4 py-2 bg-neutral-900 border border-white/10 rounded-xl focus:outline-none focus:ring-1 focus:ring-primary/50 disabled:opacity-50"
+                                        className="flex-1 px-4 py-2 bg-neutral-900 border border-white/10 rounded-xl focus:outline-none focus:ring-1 focus:ring-primary/50"
                                     >
                                         <option value="">Select Organization</option>
                                         {orgs?.map(o => <option key={o._id} value={o._id}>{o.name}</option>)}
@@ -668,6 +701,16 @@ export default function SiteManagement() {
                                     <input value={editingSite.shiftEnd} onChange={e => setEditingSite({ ...editingSite, shiftEnd: e.target.value })} type="time" className="w-full mt-1 px-4 py-2 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:ring-1 focus:ring-primary/50" />
                                 </div>
                             </div>
+                            <div>
+                                <label className="text-xs font-medium text-muted-foreground uppercase">Organization</label>
+                                <select
+                                    value={editingSite.organizationId}
+                                    onChange={e => setEditingSite({ ...editingSite, organizationId: e.target.value as Id<"organizations"> })}
+                                    className="w-full mt-1 px-4 py-2 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                >
+                                    {orgs?.map(o => <option key={o._id} value={o._id}>{o.name}</option>)}
+                                </select>
+                            </div>
                             <div className="grid grid-cols-2 gap-3 relative">
                                 <div>
                                     <div className="flex items-center justify-between">
@@ -732,6 +775,7 @@ export default function SiteManagement() {
                     </div>
                 </div>
             )}
+
             {isCreateOrgModalOpen && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-md text-left">
                     <div className="glass w-full max-w-sm max-h-[90vh] overflow-y-auto rounded-2xl border border-white/10 p-4 sm:p-6 space-y-4 shadow-2xl custom-scrollbar">
@@ -768,6 +812,7 @@ export default function SiteManagement() {
         </Layout>
     );
 }
+
 
 function SiteOfficersList({ siteId, onRemove }: { siteId: Id<"sites">, onRemove: (id: Id<"users">) => void }) {
     const rawOfficers = useQuery(api.users.listBySite, { siteId });

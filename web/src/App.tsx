@@ -8,6 +8,7 @@ import VisitLogs from "./pages/logs/VisitLogs";
 import IssueTracker from "./pages/issues/IssueTracker";
 import PatrolPoints from "./pages/points/PatrolPoints";
 import Settings from "./pages/settings/Settings";
+import OrganizationManagement from "./pages/organizations/OrganizationManagement";
 import Login from "./pages/auth/Login";
 import Restricted from "./pages/auth/Restricted";
 import AuthHandler from "./components/AuthHandler";
@@ -70,6 +71,7 @@ function App() {
                     <Route path="/issues" element={<ProtectedRoute permission="issues"><IssueTracker /></ProtectedRoute>} />
                     <Route path="/patrol-points" element={<ProtectedRoute permission="patrolPoints"><PatrolPoints /></ProtectedRoute>} />
                     <Route path="/analytics" element={<ProtectedRoute permission="analytics"><Analytics /></ProtectedRoute>} />
+                    <Route path="/organizations" element={<ProtectedRoute><OrganizationManagement /></ProtectedRoute>} />
                     <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>

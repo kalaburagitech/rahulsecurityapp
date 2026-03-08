@@ -74,7 +74,7 @@ export default defineSchema({
     patrolLogs: defineTable({
         userId: v.id("users"),
         siteId: v.id("sites"),
-        patrolPointId: v.id("patrolPoints"),
+        patrolPointId: v.optional(v.id("patrolPoints")),
         imageId: v.optional(v.string()), // storageId
         comment: v.string(),
         latitude: v.number(),

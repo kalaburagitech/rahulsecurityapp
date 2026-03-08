@@ -17,9 +17,12 @@ export default function IssueTracker() {
     const organizationId = currentUser?.organizationId;
     const orgs = useQuery(api.organizations.list);
 
-    const issues = useQuery(api.logs.listIssuesByOrg,
+    const orgIssues = useQuery((api.logs as any).listIssuesByOrg,
         (organizationId || (selectedOrgId as Id<"organizations">)) ? { organizationId: (organizationId || selectedOrgId) as Id<"organizations"> } : "skip"
     );
+    const allIssuesList = useQuery((api.logs as any).listAllIssues);
+    const isSuperAdmin = currentUser?.role === "Owner" || currentUser?.role === "Deployment Manager";
+    const issues = isSuperAdmin ? allIssuesList : orgIssues;
 
     const resolveIssue = useMutation(api.logs.resolveIssue);
 
@@ -38,7 +41,7 @@ export default function IssueTracker() {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        return issues.reduce((acc, issue) => {
+        return issues.reduce((acc: any, issue: any) => {
             if (issue.status === "open") {
                 if (issue.priority === "High") acc.critical++;
                 if (issue.priority === "Medium") acc.warnings++;
@@ -54,7 +57,7 @@ export default function IssueTracker() {
     }, [issues]);
 
     const activeIssues = React.useMemo(() => {
-        return issues?.filter(i => i.status === "open") || [];
+        return issues?.filter((i: any) => i.status === "open") || [];
     }, [issues]);
 
     if (currentUser === undefined || (organizationId && issues === undefined)) {

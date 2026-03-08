@@ -26,6 +26,7 @@ export const updateSite = mutation({
         latitude: v.number(),
         longitude: v.number(),
         allowedRadius: v.number(),
+        organizationId: v.id("organizations"),
         shiftStart: v.optional(v.string()),
         shiftEnd: v.optional(v.string()),
     },
@@ -51,6 +52,12 @@ export const listSitesByIds = query({
             if (site) sites.push(site);
         }
         return sites;
+    },
+});
+
+export const listAll = query({
+    handler: async (ctx) => {
+        return await ctx.db.query("sites").collect();
     },
 });
 

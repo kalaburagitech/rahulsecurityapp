@@ -6,7 +6,7 @@ export const createPatrolLog = mutation({
     args: {
         userId: v.id("users"),
         siteId: v.id("sites"),
-        patrolPointId: v.id("patrolPoints"),
+        patrolPointId: v.optional(v.id("patrolPoints")),
         imageId: v.optional(v.string()),
         comment: v.string(),
         latitude: v.number(),
@@ -79,13 +79,13 @@ export const listPatrolLogs = query({
             logs.map(async (log) => {
                 const user = await ctx.db.get(log.userId);
                 const site = await ctx.db.get(log.siteId);
-                const point = await ctx.db.get(log.patrolPointId);
+                const point = log.patrolPointId ? await ctx.db.get(log.patrolPointId) : null;
                 return {
                     ...log,
                     userName: user?.name || "Unknown",
                     userRole: user?.role || "SG",
                     siteName: site?.name || "Unknown",
-                    pointName: site ? `${site.name}_${point?.name || "Unknown"}` : (point?.name || "Unknown"),
+                    pointName: point?.name || "General Area",
                 };
             })
         );
@@ -165,6 +165,45 @@ export const listVisitLogs = query({
     },
 });
 
+export const listAllIssues = query({
+    handler: async (ctx) => {
+        const issues = await ctx.db.query("issues").order("desc").collect();
+        return await Promise.all(
+            issues.map(async (issue) => {
+                const site = await ctx.db.get(issue.siteId);
+                let reporterName = "Unknown";
+                let reporterRole = "Staff";
+                let locationContext = "General Visit";
+
+                const patrolLog = await ctx.db.get(issue.logId as Id<"patrolLogs">);
+                if (patrolLog && (patrolLog as any).userId) {
+                    const user = (await ctx.db.get((patrolLog as any).userId)) as any;
+                    reporterName = user?.name || "Unknown";
+                    reporterRole = user?.role || "SG";
+                    const point = (patrolLog as any).patrolPointId ? (await ctx.db.get((patrolLog as any).patrolPointId)) as any : null;
+                    locationContext = point?.name || "Patrol Area";
+                } else {
+                    const visitLog = await ctx.db.get(issue.logId as Id<"visitLogs">);
+                    if (visitLog) {
+                        const user = (await ctx.db.get(visitLog.userId)) as any;
+                        reporterName = user?.name || "Unknown";
+                        reporterRole = user?.role || "Officer";
+                        locationContext = "Visit Scan";
+                    }
+                }
+
+                return {
+                    ...issue,
+                    siteName: site?.name || "Unknown Site",
+                    reporterName,
+                    reporterRole,
+                    locationContext,
+                };
+            })
+        );
+    },
+});
+
 export const listIssuesByOrg = query({
     args: { organizationId: v.id("organizations") },
     handler: async (ctx, args) => {
@@ -183,17 +222,17 @@ export const listIssuesByOrg = query({
 
                 // Find the log to get the user
                 const patrolLog = await ctx.db.get(issue.logId as Id<"patrolLogs">);
-                if (patrolLog) {
-                    const user = await ctx.db.get(patrolLog.userId);
+                if (patrolLog && (patrolLog as any).userId) {
+                    const user = (await ctx.db.get((patrolLog as any).userId)) as any;
                     reporterName = user?.name || "Unknown";
                     reporterRole = user?.role || "SG";
 
-                    const point = await ctx.db.get(patrolLog.patrolPointId);
-                    locationContext = point?.name || "Patrol Point";
+                    const point = (patrolLog as any).patrolPointId ? (await ctx.db.get((patrolLog as any).patrolPointId)) as any : null;
+                    locationContext = point?.name || "Patrol Area";
                 } else {
                     const visitLog = await ctx.db.get(issue.logId as Id<"visitLogs">);
                     if (visitLog) {
-                        const user = await ctx.db.get(visitLog.userId);
+                        const user = (await ctx.db.get(visitLog.userId)) as any;
                         reporterName = user?.name || "Unknown";
                         reporterRole = user?.role || "Officer";
                         locationContext = "Visit Scan";
@@ -220,3 +259,114 @@ export const resolveIssue = mutation({
         await ctx.db.patch(args.issueId, { status: "closed" });
     },
 });
+export const createDualLog = mutation({
+    args: {
+        userId: v.id("users"),
+        siteId: v.id("sites"),
+        patrolPointId: v.optional(v.id("patrolPoints")),
+        qrCode: v.optional(v.string()),
+        imageId: v.optional(v.string()),
+        comment: v.string(),
+        latitude: v.number(),
+        longitude: v.number(),
+        organizationId: v.id("organizations"),
+        issueDetails: v.optional(v.object({
+            title: v.string(),
+            priority: v.union(v.literal("Low"), v.literal("Medium"), v.literal("High")),
+        })),
+    },
+    handler: async (ctx, args) => {
+        const { patrolPointId, qrCode, ...rest } = args;
+        let finalPatrolPointId = patrolPointId;
+
+        // 1. Try to find point if only QR was provided
+        if (!finalPatrolPointId && qrCode) {
+            const point = await ctx.db
+                .query("patrolPoints")
+                .withIndex("by_site", (q) => q.eq("siteId", args.siteId))
+                .filter((q) => q.eq(q.field("qrCode"), qrCode))
+                .first();
+            if (point) finalPatrolPointId = point._id;
+        }
+
+        const site = await ctx.db.get(args.siteId);
+        if (!site) throw new Error("Site not found");
+
+        // 2. Calculate Distance for Patrol
+        let distance = 0;
+        if (finalPatrolPointId) {
+            const point = await ctx.db.get(finalPatrolPointId);
+            if (point && point.latitude && point.longitude) {
+                distance = calculateDistance(
+                    args.latitude,
+                    args.longitude,
+                    point.latitude,
+                    point.longitude
+                );
+            }
+        } else {
+            // Fallback to site distance if no specific point
+            distance = calculateDistance(
+                args.latitude,
+                args.longitude,
+                site.latitude,
+                site.longitude
+            );
+        }
+
+        // 3. Insert Patrol Log
+        const patrolLogId = await ctx.db.insert("patrolLogs", {
+            ...rest,
+            patrolPointId: finalPatrolPointId,
+            distance,
+            createdAt: Date.now(),
+        });
+
+        // 4. Insert Visit Log
+        const visitLogId = await ctx.db.insert("visitLogs", {
+            userId: args.userId,
+            siteId: args.siteId,
+            qrData: qrCode || "MANUAL_SCAN",
+            imageId: args.imageId,
+            remark: args.comment,
+            latitude: args.latitude,
+            longitude: args.longitude,
+            organizationId: args.organizationId,
+            createdAt: Date.now(),
+        });
+
+        // 5. Handle Issues (Manual or Violation)
+        if (args.issueDetails || distance > (site.allowedRadius || 100)) {
+            const issueTitle = args.issueDetails?.title ||
+                (distance > (site.allowedRadius || 100) ? "Geofence Violation" : "Patrol Issue");
+
+            await ctx.db.insert("issues", {
+                siteId: args.siteId,
+                logId: patrolLogId, // Link to patrol log primarily
+                title: issueTitle,
+                description: args.comment || "Automatic geofence violation report",
+                priority: args.issueDetails?.priority || (distance > (site.allowedRadius || 100) ? "High" : "Medium"),
+                status: "open",
+                timestamp: Date.now(),
+                organizationId: args.organizationId,
+            });
+        }
+
+        return { patrolLogId, visitLogId };
+    },
+});
+
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+    const R = 6371e3; // metres
+    const φ1 = (lat1 * Math.PI) / 180;
+    const φ2 = (lat2 * Math.PI) / 180;
+    const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+    const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+
+    const a =
+        Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+        Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c;
+}
