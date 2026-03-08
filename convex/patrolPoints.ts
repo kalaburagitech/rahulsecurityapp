@@ -8,10 +8,12 @@ export const createPoint = mutation({
         latitude: v.number(),
         longitude: v.number(),
         organizationId: v.id("organizations"),
+        imageId: v.optional(v.string()),
+        qrCode: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
-        // Revert to generated unique QR code string for storage
-        const qrCode = `${args.siteId.slice(0, 4)}-${args.name.replace(/\s+/g, '-').toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+        // Use provided QR code or generate a unique unique one
+        const qrCode = args.qrCode || `${args.siteId.slice(0, 4)}-${args.name.replace(/\s+/g, '-').toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
 
         return await ctx.db.insert("patrolPoints", {
             siteId: args.siteId,
@@ -20,6 +22,8 @@ export const createPoint = mutation({
             latitude: args.latitude,
             longitude: args.longitude,
             organizationId: args.organizationId,
+            imageId: args.imageId,
+            createdAt: Date.now(),
         });
     },
 });
@@ -48,12 +52,24 @@ export const updatePoint = mutation({
     args: {
         id: v.id("patrolPoints"),
         name: v.string(),
-        latitude: v.number(),
-        longitude: v.number(),
+        latitude: v.optional(v.number()),
+        longitude: v.optional(v.number()),
+        imageId: v.optional(v.string()),
+        siteId: v.optional(v.id("sites")),
+        qrCode: v.optional(v.string()),
+        organizationId: v.optional(v.id("organizations")),
     },
     handler: async (ctx, args) => {
-        const { id, ...data } = args;
-        return await ctx.db.patch(id, data);
+        const { id, ...updates } = args;
+
+        // Remove undefined or NaN values to avoid patch errors
+        const cleanUpdates = Object.fromEntries(
+            Object.entries(updates).filter(([_, v]) =>
+                v !== undefined && (typeof v !== 'number' || !isNaN(v))
+            )
+        );
+
+        await ctx.db.patch(id, cleanUpdates);
     },
 });
 

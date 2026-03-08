@@ -67,6 +67,8 @@ export default defineSchema({
         latitude: v.optional(v.number()),
         longitude: v.optional(v.number()),
         organizationId: v.id("organizations"),
+        imageId: v.optional(v.string()), // storageId for setup photo
+        createdAt: v.optional(v.number()),
     }).index("by_org", ["organizationId"]).index("by_site", ["siteId"]),
 
     patrolLogs: defineTable({

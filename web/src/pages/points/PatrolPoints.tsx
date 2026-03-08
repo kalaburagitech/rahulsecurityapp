@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Layout } from "../../components/Layout";
-import { Plus, Search, MapPin, Printer, X, Trash2, Loader2 } from "lucide-react";
+import { Plus, Search, MapPin, Printer, X, Trash2, Loader2, Edit2 } from "lucide-react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
@@ -19,6 +19,7 @@ export default function PatrolPoints() {
     const [newLng, setNewLng] = useState("");
     const [selectedOrgId, setSelectedOrgId] = useState<string>("");
     const [isDetecting, setIsDetecting] = useState(false);
+    const [editingPoint, setEditingPoint] = useState<any | null>(null);
     const [isDeletingId, setIsDeletingId] = useState<Id<"patrolPoints"> | null>(null);
 
     const currentUser = useQuery(api.users.getByClerkId,
@@ -35,6 +36,7 @@ export default function PatrolPoints() {
     );
 
     const createPoint = useMutation(api.patrolPoints.createPoint);
+    const updatePoint = useMutation(api.patrolPoints.updatePoint);
     const deletePoint = useMutation(api.patrolPoints.removePoint);
 
     const handleAddPoint = async () => {
@@ -60,6 +62,34 @@ export default function PatrolPoints() {
             toast.success("Patrol point created successfully");
         } catch (error) {
             toast.error("Failed to create patrol point");
+        }
+    };
+
+    const handleUpdatePoint = async () => {
+        if (!editingPoint) return;
+
+        const lat = parseFloat(editingPoint.latitude);
+        const lng = parseFloat(editingPoint.longitude);
+
+        if (isNaN(lat) || isNaN(lng)) {
+            toast.error("Valid Latitude and Longitude are required");
+            return;
+        }
+
+        try {
+            await updatePoint({
+                id: editingPoint._id,
+                name: editingPoint.name,
+                siteId: editingPoint.siteId as Id<"sites">,
+                latitude: lat,
+                longitude: lng,
+                qrCode: editingPoint.qrCode
+            });
+            setEditingPoint(null);
+            toast.success("Patrol point updated successfully");
+        } catch (error: any) {
+            console.error("Update error:", error);
+            toast.error(error.message || "Failed to update patrol point");
         }
     };
 
@@ -184,6 +214,13 @@ export default function PatrolPoints() {
                                 </div>
                                 <div className="flex flex-col gap-2">
                                     <button
+                                        onClick={() => setEditingPoint({ ...point })}
+                                        className="p-2 hover:bg-white/10 rounded-lg text-muted-foreground hover:text-primary transition-colors"
+                                        title="Edit Point"
+                                    >
+                                        <Edit2 className="w-4 h-4" />
+                                    </button>
+                                    <button
                                         onClick={() => handlePrint(point)}
                                         className="p-2 hover:bg-white/10 rounded-lg text-muted-foreground hover:text-white transition-colors"
                                         title="Print QR Code"
@@ -207,7 +244,7 @@ export default function PatrolPoints() {
                                 {sites?.find(s => s._id === point.siteId)?.name || "Loading Site..."}
                             </div>
                             <div className="mt-6 p-3 bg-white/5 rounded-xl border border-dashed border-white/10 text-center">
-                                <span className="text-[9px] font-mono text-muted-foreground uppercase tracking-widest break-all">ID: {point.qrCode}</span>
+                                <span className="text-[9px] font-mono text-muted-foreground uppercase tracking-widest break-all">Patrol Point Registered</span>
                             </div>
                         </div>
                     ))}
@@ -283,6 +320,85 @@ export default function PatrolPoints() {
                             className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-bold hover:bg-primary/90 transition-all shadow-lg"
                         >
                             Generate Point
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {editingPoint && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-sm">
+                    <div className="glass w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-white/10 p-4 sm:p-6 space-y-4 custom-scrollbar">
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-lg font-semibold text-white">Edit Patrol Point</h3>
+                            <button onClick={() => setEditingPoint(null)}><X className="w-5 h-5 text-muted-foreground" /></button>
+                        </div>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="text-xs font-medium text-muted-foreground uppercase mb-1 block">Assigned Site</label>
+                                <select
+                                    value={editingPoint.siteId}
+                                    onChange={e => setEditingPoint({ ...editingPoint, siteId: e.target.value })}
+                                    className="w-full px-4 py-2.5 bg-neutral-900 border border-white/10 rounded-xl focus:outline-none focus:ring-1 focus:ring-primary/50 text-white"
+                                >
+                                    <option value="">Select a Site</option>
+                                    {sites?.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="text-xs font-medium text-muted-foreground uppercase mb-1 block">Point Name</label>
+                                <input
+                                    value={editingPoint.name}
+                                    onChange={e => setEditingPoint({ ...editingPoint, name: e.target.value })}
+                                    placeholder="e.g. Main Transformer"
+                                    className="w-full px-4 py-2.5 bg-neutral-900 border border-white/10 rounded-xl focus:outline-none focus:ring-1 focus:ring-primary/50 text-white"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs font-medium text-muted-foreground uppercase mb-1 block">Identification Token (Internal)</label>
+                                <input
+                                    value={editingPoint.qrCode}
+                                    readOnly
+                                    className="w-full px-4 py-2.5 bg-neutral-900/50 border border-white/5 rounded-xl text-muted-foreground font-mono text-sm cursor-not-allowed"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs font-medium text-muted-foreground uppercase mb-1 block flex justify-between">
+                                    GPS Coordinates
+                                    <button
+                                        onClick={() => {
+                                            navigator.geolocation.getCurrentPosition(
+                                                (pos) => setEditingPoint({ ...editingPoint, latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+                                                (err) => toast.error("Failed: " + err.message)
+                                            );
+                                        }}
+                                        className="text-primary hover:text-primary/80 transition-colors lowercase"
+                                    >
+                                        Use Current
+                                    </button>
+                                </label>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <input
+                                        type="number"
+                                        step="any"
+                                        value={editingPoint.latitude}
+                                        onChange={e => setEditingPoint({ ...editingPoint, latitude: e.target.value })}
+                                        className="w-full px-4 py-2.5 bg-neutral-900 border border-white/10 rounded-xl focus:outline-none focus:ring-1 focus:ring-primary/50 text-white text-sm"
+                                    />
+                                    <input
+                                        type="number"
+                                        step="any"
+                                        value={editingPoint.longitude}
+                                        onChange={e => setEditingPoint({ ...editingPoint, longitude: e.target.value })}
+                                        className="w-full px-4 py-2.5 bg-neutral-900 border border-white/10 rounded-xl focus:outline-none focus:ring-1 focus:ring-primary/50 text-white text-sm"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                        <button
+                            onClick={handleUpdatePoint}
+                            className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-bold hover:bg-primary/90 transition-all shadow-lg"
+                        >
+                            Save Changes
                         </button>
                     </div>
                 </div>

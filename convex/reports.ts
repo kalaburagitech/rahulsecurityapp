@@ -1,5 +1,6 @@
-import { internalAction, internalQuery } from "./_generated/server";
+import { internalAction, internalQuery, mutation } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { v } from "convex/values";
 
 export const getDailySummary = internalQuery({
     args: {},
@@ -43,8 +44,11 @@ export const getDailySummary = internalQuery({
 });
 
 export const sendDailyEmailReport = internalAction({
-    args: {},
-    handler: async (ctx) => {
+    args: {
+        testEmail: v.optional(v.string()),
+        force: v.optional(v.boolean())
+    },
+    handler: async (ctx, args) => {
         // @ts-ignore
         const brevoApiKey = process.env.BREVO_API_KEY;
         if (!brevoApiKey) {
@@ -54,7 +58,7 @@ export const sendDailyEmailReport = internalAction({
 
         const stats = await ctx.runQuery(internal.reports.getDailySummary);
 
-        if (stats.totalPatrols === 0 && stats.totalVisits === 0) {
+        if (!args.force && stats.totalPatrols === 0 && stats.totalVisits === 0) {
             console.log("No activity today, skipping report.");
             return;
         }
@@ -110,8 +114,8 @@ export const sendDailyEmailReport = internalAction({
                     "api-key": brevoApiKey,
                 },
                 body: JSON.stringify({
-                    sender: { name: "Security OS Reports", email: "reports@onclix.xyz" },
-                    to: [{ email: "kalaburagitech@gmail.com" }],
+                    sender: { name: "Security OS Reports", email: "kalaburagitech@gmail.com" },
+                    to: [{ email: args.testEmail || "kalaburagitech@gmail.com" }],
                     subject: `Daily Security Report - ${stats.date}`,
                     htmlContent: html,
                 }),
@@ -126,5 +130,20 @@ export const sendDailyEmailReport = internalAction({
         } catch (error) {
             console.error("Failed to send daily report via Brevo:", error);
         }
+    }
+});
+
+// Test mutation to trigger the report manually
+export const sendTestReport = mutation({
+    args: {
+        email: v.optional(v.string())
+    },
+    handler: async (ctx, args) => {
+        // Schedule the internal action to run immediately with force flag
+        await ctx.scheduler.runAfter(0, internal.reports.sendDailyEmailReport, {
+            testEmail: args.email,
+            force: true
+        });
+        return { success: true, message: `Report triggered for ${args.email || 'default recipient'}. Check logs in Convex dashboard.` };
     }
 });
