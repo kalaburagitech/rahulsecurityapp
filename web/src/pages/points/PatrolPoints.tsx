@@ -146,7 +146,7 @@ export default function PatrolPoints() {
                 <body>
                     <div class="container">
                         ${qrSvg}
-                        <h1>${sites?.find(s => s._id === point.siteId)?.name}_${point.name}</h1>
+                        <h1>${sites?.find((s: any) => s._id === point.siteId)?.name}_${point.name}</h1>
                         <p>ID: ${point.qrCode}</p>
                     </div>
                     <script>window.onload = () => { window.print(); window.close(); }</script>

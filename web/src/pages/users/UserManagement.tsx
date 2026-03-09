@@ -227,7 +227,7 @@ export default function UserManagement() {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-white/5">
-                                        {filteredUsers?.map((u) => (
+                                        {filteredUsers?.map((u: any) => (
                                             <tr key={u._id} className="hover:bg-white/[0.02] transition-colors group">
                                                 <td className="px-4 sm:px-6 py-4">
                                                     <div className="flex items-center gap-3">

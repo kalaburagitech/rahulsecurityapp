@@ -63,7 +63,7 @@ export default function Dashboard() {
         },
         {
             label: "Open Issues",
-            value: issuesList?.filter(i => i.status === "open").length?.toString() || "0",
+            value: issuesList?.filter((i: any) => i.status === "open").length?.toString() || "0",
             icon: AlertTriangle,
             color: "text-rose-500",
             trend: issuesList === undefined ? "Loading..." : "Critical"
@@ -159,8 +159,8 @@ export default function Dashboard() {
                     <div className="glass rounded-2xl border border-white/10 p-6 h-full">
                         <h4 className="text-lg font-semibold text-white/90 mb-6">Recent Alerts</h4>
                         <div className="space-y-4">
-                            {issuesList && issuesList.filter(i => i.status === "open").length > 0 ? (
-                                issuesList.filter(i => i.status === "open").slice(0, 5).map((issue) => (
+                            {issuesList && issuesList.filter((i: any) => i.status === "open").length > 0 ? (
+                                issuesList.filter((i: any) => i.status === "open").slice(0, 5).map((issue: any) => (
                                     <div key={issue._id} className="flex gap-4 p-3 rounded-xl hover:bg-white/5 border border-transparent hover:border-white/5 transition-all cursor-pointer">
                                         <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center shrink-0",
                                             issue.priority === "High" ? "bg-rose-500/10" : "bg-amber-500/10")}>

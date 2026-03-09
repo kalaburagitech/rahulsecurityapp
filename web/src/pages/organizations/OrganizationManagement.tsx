@@ -15,15 +15,15 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "../../lib/utils";
-import { Id } from "../../../convex/_generated/dataModel";
+import type { Id } from "../../../convex/_generated/dataModel";
 
 export default function OrganizationManagement() {
-    const orgs = useQuery(api.organizations.list);
+    const orgs = useQuery((api as any).organizations.list);
     const allSites = useQuery((api as any).sites.listAll);
     const allUsers = useQuery((api as any).users.listAll);
-    const createOrg = useMutation(api.organizations.create);
-    const updateOrg = useMutation(api.organizations.update);
-    const removeOrg = useMutation(api.organizations.remove);
+    const createOrg = useMutation((api as any).organizations.create);
+    const updateOrg = useMutation((api as any).organizations.update);
+    const removeOrg = useMutation((api as any).organizations.remove);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingOrg, setEditingOrg] = useState<{ id: Id<"organizations">, name: string } | null>(null);
@@ -39,7 +39,7 @@ export default function OrganizationManagement() {
         return (allUsers as any)?.filter((u: any) => u.organizationId === orgId).length || 0;
     };
 
-    const filteredOrgs = orgs?.filter(org =>
+    const filteredOrgs = orgs?.filter((org: any) =>
         org.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
@@ -142,7 +142,7 @@ export default function OrganizationManagement() {
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {filteredOrgs?.map((org) => {
+                        {filteredOrgs?.map((org: any) => {
                             const siteCount = getSiteCount(org._id);
                             const userCount = getUserCount(org._id);
                             return (
