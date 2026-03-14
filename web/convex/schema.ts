@@ -38,7 +38,8 @@ export default defineSchema({
         id: v.optional(v.string()),
     }).index("by_clerkId", ["clerkId"])
         .index("by_org", ["organizationId"])
-        .index("by_email", ["email"]),
+        .index("by_email", ["email"])
+        .index("by_mobileNumber", ["mobileNumber"]),
 
     loginLogs: defineTable({
         userId: v.id("users"),
@@ -48,8 +49,9 @@ export default defineSchema({
         ipAddress: v.optional(v.string()),
         browserInfo: v.optional(v.string()),
         sessionId: v.optional(v.string()),
-        loginStatus: v.string(),
-        organizationId: v.optional(v.id("organizations")),
+        loginStatus: v.string(), // "success", "failed", "logout"
+        organizationId: v.optional(v.id("organizations")), // Made optional for legacy data
+        status: v.optional(v.string()), // Legacy field
     }).index("by_user", ["userId"])
         .index("by_org", ["organizationId"]),
 
@@ -62,7 +64,12 @@ export default defineSchema({
         organizationId: v.id("organizations"),
         shiftStart: v.optional(v.string()), // e.g. "08:00"
         shiftEnd: v.optional(v.string()),   // e.g. "20:00"
-    }).index("by_org", ["organizationId"]),
+    }).index("by_org", ["organizationId"])
+        .searchIndex("search_name", {
+            searchField: "name",
+            filterFields: ["organizationId"],
+        }),
+
 
     patrolPoints: defineTable({
         siteId: v.id("sites"),
@@ -73,7 +80,12 @@ export default defineSchema({
         organizationId: v.id("organizations"),
         imageId: v.optional(v.string()), // storageId for setup photo
         createdAt: v.optional(v.number()),
-    }).index("by_org", ["organizationId"]).index("by_site", ["siteId"]),
+    }).index("by_org", ["organizationId"])
+        .index("by_site", ["siteId"])
+        .searchIndex("search_name", {
+            searchField: "name",
+            filterFields: ["organizationId", "siteId"],
+        }),
 
     patrolLogs: defineTable({
         userId: v.id("users"),
@@ -98,7 +110,7 @@ export default defineSchema({
         longitude: v.number(),
         createdAt: v.number(),
         organizationId: v.id("organizations"),
-    }).index("by_org", ["organizationId"]),
+    }).index("by_org", ["organizationId"]).index("by_site", ["siteId"]),
 
     issues: defineTable({
         siteId: v.id("sites"),
@@ -109,5 +121,28 @@ export default defineSchema({
         status: v.union(v.literal("open"), v.literal("closed")),
         timestamp: v.number(),
         organizationId: v.id("organizations"),
-    }).index("by_org", ["organizationId"]),
+    }).index("by_org", ["organizationId"]).index("by_site", ["siteId"]),
+
+    patrolSessions: defineTable({
+        guardId: v.id("users"),
+        userId: v.optional(v.id("users")), // Legacy field for migration
+        siteId: v.id("sites"),
+        startTime: v.number(),
+        endTime: v.optional(v.number()),
+        status: v.union(v.literal("active"), v.literal("completed")),
+        scannedPoints: v.optional(v.array(v.id("patrolPoints"))),
+        organizationId: v.id("organizations"),
+    }).index("by_org", ["organizationId"]).index("by_guard", ["guardId"]),
+
+    incidents: defineTable({
+        guardId: v.id("users"),
+        userId: v.optional(v.id("users")), // Legacy field for migration
+        siteId: v.id("sites"),
+        patrolPointId: v.optional(v.id("patrolPoints")),
+        imageId: v.optional(v.string()), // storageId
+        comment: v.string(),
+        severity: v.union(v.literal("Low"), v.literal("Medium"), v.literal("High")),
+        timestamp: v.number(),
+        organizationId: v.id("organizations"),
+    }).index("by_org", ["organizationId"]).index("by_site", ["siteId"]),
 });
