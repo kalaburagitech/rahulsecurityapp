@@ -9,6 +9,7 @@ export const logLogin = mutation({
     browserInfo: v.optional(v.string()),
     sessionId: v.optional(v.string()),
     loginStatus: v.string(),
+    organizationId: v.id("organizations"),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("loginLogs", {
@@ -19,6 +20,7 @@ export const logLogin = mutation({
       browserInfo: args.browserInfo,
       sessionId: args.sessionId,
       loginStatus: args.loginStatus,
+      organizationId: args.organizationId,
     });
   },
 });

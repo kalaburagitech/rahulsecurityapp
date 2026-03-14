@@ -34,6 +34,8 @@ export default defineSchema({
             issues: v.boolean(),
             analytics: v.boolean(),
         })),
+        creationTime: v.optional(v.number()),
+        id: v.optional(v.string()),
     }).index("by_clerkId", ["clerkId"])
         .index("by_org", ["organizationId"])
         .index("by_email", ["email"]),
@@ -47,7 +49,9 @@ export default defineSchema({
         browserInfo: v.optional(v.string()),
         sessionId: v.optional(v.string()),
         loginStatus: v.string(),
-    }).index("by_user", ["userId"]),
+        organizationId: v.optional(v.id("organizations")),
+    }).index("by_user", ["userId"])
+        .index("by_org", ["organizationId"]),
 
     sites: defineTable({
         name: v.string(),
