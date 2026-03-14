@@ -8,33 +8,37 @@ const router = express.Router();
 const otps = new Map();
 
 router.post("/send-otp", async (req, res) => {
-    const { mobileNumber } = req.body;
+    let { mobileNumber } = req.body;
     if (!mobileNumber) {
         return res.status(400).json({ error: "Mobile number is required" });
     }
+
+    // Normalize number
+    const normalizedNumber = mobileNumber.replace(/\D/g, "");
 
     // Generate 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
     // Store OTP for 5 minutes
-    otps.set(mobileNumber, {
+    otps.set(normalizedNumber, {
         otp,
         expiry: Date.now() + 5 * 60 * 1000
     });
 
-    console.log(`[AUTH] OTP for ${mobileNumber}: ${otp}`);
+    console.log(`[AUTH] OTP for ${normalizedNumber}: ${otp}`);
 
     // In a real app, send OTP via SMS service here
     res.json({ success: true, otp, message: "OTP sent (check server console in real flow)" });
 });
 
 router.post("/verify-otp", async (req, res) => {
-    const { mobileNumber, otp } = req.body;
+    let { mobileNumber, otp } = req.body;
     if (!mobileNumber || !otp) {
         return res.status(400).json({ error: "Mobile number and OTP are required" });
     }
 
-    const storedData = otps.get(mobileNumber);
+    const normalizedNumber = mobileNumber.replace(/\D/g, "");
+    const storedData = otps.get(normalizedNumber);
 
     if (!storedData) {
         return res.status(400).json({ error: "No OTP found for this number" });
@@ -81,8 +85,15 @@ router.post("/verify-otp", async (req, res) => {
             token: "mock-jwt-token"
         });
     } catch (error) {
-        console.error("[AUTH] verify-otp error:", error);
-        res.status(500).json({ error: "Internal server error" });
+        console.error("[AUTH] verify-otp error DETAILS:", {
+            message: error.message,
+            stack: error.stack,
+            error
+        });
+        res.status(500).json({ 
+            error: "Internal server error", 
+            details: error.message 
+        });
     }
 });
 
