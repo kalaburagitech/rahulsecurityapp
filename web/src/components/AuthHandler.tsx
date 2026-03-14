@@ -46,7 +46,6 @@ export default function AuthHandler({ children }: { children: React.ReactNode })
                             sessionId: session?.id,
                             browserInfo: navigator.userAgent,
                             loginStatus: "success",
-                            organizationId: convexUser.organizationId,
                         });
 
                         console.log("AuthHandler: sync complete");

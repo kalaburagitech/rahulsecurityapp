@@ -56,7 +56,7 @@ export default function SiteManagement() {
     const orgs = useQuery(api.organizations.list);
 
     // Admins/Owners should see all sites, others only their org's sites
-    const allSites = useQuery(api.sites.list);
+    const allSites = useQuery(api.sites.list, {});
     const orgSites = useQuery(api.sites.listSitesByOrg,
         organizationId ? { organizationId } : "skip"
     );
@@ -468,7 +468,6 @@ export default function SiteManagement() {
                                                                             mobileNumber: officer.mobileNumber,
                                                                             organizationId: officer.organizationId,
                                                                             siteIds: officer.siteIds?.filter(id => id !== site._id),
-                                                                            permissions: officer.permissions
                                                                         } as any);
                                                                         toast.success(`${officer.name} unassigned`);
                                                                     } catch (error: any) {

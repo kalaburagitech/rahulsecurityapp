@@ -19,7 +19,7 @@ import type { Id } from "../../../convex/_generated/dataModel";
 
 export default function OrganizationManagement() {
     const orgs = useQuery((api as any).organizations.list);
-    const allSites = useQuery(api.sites.list);
+    const allSites = useQuery(api.sites.list, {});
     const allUsers = useQuery(api.users.list);
     const createOrg = useMutation((api as any).organizations.create);
     const updateOrg = useMutation((api as any).organizations.update);

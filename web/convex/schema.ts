@@ -132,7 +132,9 @@ export default defineSchema({
         status: v.union(v.literal("active"), v.literal("completed")),
         scannedPoints: v.optional(v.array(v.id("patrolPoints"))),
         organizationId: v.id("organizations"),
-    }).index("by_org", ["organizationId"]).index("by_guard", ["guardId"]),
+    }).index("by_org", ["organizationId"])
+        .index("by_guard", ["guardId"])
+        .index("by_org_status", ["organizationId", "status"]),
 
     incidents: defineTable({
         guardId: v.id("users"),

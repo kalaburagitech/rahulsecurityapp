@@ -128,7 +128,6 @@ export const searchPoints = query({
         const orgId = args.organizationId;
         const sId = args.siteId;
 
-        let q;
         let paginatedResults: any;
         if (args.searchQuery.trim()) {
             const searchQ = ctx.db
@@ -149,7 +148,7 @@ export const searchPoints = query({
             }
             paginatedResults = await regularQ.order("desc").paginate(args.paginationOpts);
         }
-        
+
         // Enrich with site names
         const enrichedPage = await Promise.all(
             paginatedResults.page.map(async (point: any) => {
@@ -169,7 +168,7 @@ export const searchPoints = query({
 });
 
 export const countByOrg = query({
-    args: { 
+    args: {
         organizationId: v.optional(v.id("organizations")),
         siteId: v.optional(v.id("sites"))
     },

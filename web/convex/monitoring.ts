@@ -13,23 +13,25 @@ export const getActivePatrols = query({
 
         return await Promise.all(
             activeSessions.map(async (session) => {
-                const user = await ctx.db.get(session.userId);
+                const user = await ctx.db.get(session.guardId);
                 const site = await ctx.db.get(session.siteId);
 
                 // Get last scan for this session
                 const lastLog = await ctx.db
                     .query("patrolLogs")
                     .withIndex("by_site", (q) => q.eq("siteId", session.siteId))
-                    .filter((q) => q.eq(q.field("userId"), session.userId))
+                    .filter((q) => q.eq(q.field("userId"), session.guardId))
                     .order("desc")
                     .first();
+
+                const lastPointName = lastLog?.patrolPointId ? (await ctx.db.get(lastLog.patrolPointId))?.name : "Started Duty";
 
                 return {
                     ...session,
                     guardName: user?.name || "Unknown",
                     siteName: site?.name || "Unknown",
                     lastScanTime: lastLog?.createdAt || session.startTime,
-                    lastPointName: lastLog?.patrolPointId ? (await ctx.db.get(lastLog.patrolPointId))?.name : "Started Duty"
+                    lastPointName: lastPointName
                 };
             })
         );
