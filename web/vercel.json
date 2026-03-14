@@ -4,6 +4,18 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
+      "source": "/api/(.*)",
+      "destination": "/api/server.js"
+    },
+    {
+      "source": "/getotp",
+      "destination": "/api/server.js"
+    },
+    {
+      "source": "/verify",
+      "destination": "/api/server.js"
+    },
+    {
       "source": "/(.*)",
       "destination": "/"
     }

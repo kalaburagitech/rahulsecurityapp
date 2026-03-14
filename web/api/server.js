@@ -34,15 +34,22 @@ app.use("/api/users", usersRoutes);
 app.use("/api/sites", sitesRoutes);
 app.use("/api/points", pointsRoutes);
 app.use("/api/logs", logsRoutes);
-app.use("/api/issues", issuesRoutes);
-app.use("/api/incidents", incidentRoutes);
+
+// Custom top-level routes for the user's specific request
+app.use("/getotp", authRoutes); // authRoutes has /send-otp, we might need a rename or alias
+app.use("/verify", authRoutes); // authRoutes has /verify-otp
 
 // Health check
 app.get("/health", (req, res) => {
     res.json({ status: "ok", time: new Date().toISOString() });
 });
 
-app.listen(PORT, () => {
-    console.log(`🚀 API Server running at http://localhost:${PORT}`);
-    console.log(`📡 Convex target: ${process.env.VITE_CONVEX_URL}`);
-});
+// For local development
+if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+    app.listen(PORT, () => {
+        console.log(`🚀 API Server running at http://localhost:${PORT}`);
+        console.log(`📡 Convex target: ${process.env.VITE_CONVEX_URL}`);
+    });
+}
+
+export default app;

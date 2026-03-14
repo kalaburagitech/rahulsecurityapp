@@ -31,6 +31,18 @@ router.post("/send-otp", async (req, res) => {
     res.json({ success: true, otp, message: "OTP sent (check server console in real flow)" });
 });
 
+// Alias for user request
+router.post("/getotp", async (req, res) => {
+    req.url = "/send-otp";
+    router.handle(req, res);
+});
+
+// Alias for user request
+router.post("/verify", async (req, res) => {
+    req.url = "/verify-otp";
+    router.handle(req, res);
+});
+
 router.post("/verify-otp", async (req, res) => {
     let { mobileNumber, otp } = req.body;
     if (!mobileNumber || !otp) {
@@ -90,9 +102,9 @@ router.post("/verify-otp", async (req, res) => {
             stack: error.stack,
             error
         });
-        res.status(500).json({ 
-            error: "Internal server error", 
-            details: error.message 
+        res.status(500).json({
+            error: "Internal server error",
+            details: error.message
         });
     }
 });
