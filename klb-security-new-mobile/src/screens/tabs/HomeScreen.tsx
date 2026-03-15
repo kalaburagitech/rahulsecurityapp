@@ -16,6 +16,8 @@ export default function HomeScreen() {
     const { userId, customUser, logout } = useCustomAuth();
     const [activeSession, setActiveSession] = useState<any>(null); // Still need to migrate getActiveSession
     const [sites, setSites] = useState<any[]>([]);
+    const [elapsedMs, setElapsedMs] = useState(0);
+    const sessionMinutes = 60;
 
     React.useEffect(() => {
         if (userId) {
@@ -48,6 +50,30 @@ export default function HomeScreen() {
         }
     }, [activeSession]);
 
+    useEffect(() => {
+        if (!activeSession?.startTime) {
+            setElapsedMs(0);
+            return;
+        }
+        const tick = () => setElapsedMs(Date.now() - activeSession.startTime);
+        tick();
+        const id = setInterval(tick, 1000);
+        return () => clearInterval(id);
+    }, [activeSession?.startTime]);
+
+    const formatDuration = (ms: number) => {
+        const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        if (hours > 0) {
+            return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+        return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    };
+
+    const remainingMs = sessionMinutes * 60 * 1000 - elapsedMs;
+
     const onRefresh = () => {
         setRefreshing(true);
         setTimeout(() => setRefreshing(false), 1000);
@@ -55,6 +81,11 @@ export default function HomeScreen() {
 
     return (
         <SafeAreaView style={styles.container}>
+            <View style={styles.backgroundOrbs} pointerEvents="none">
+                <View style={styles.orbA} />
+                <View style={styles.orbB} />
+                <View style={styles.orbC} />
+            </View>
             <ScrollView
                 contentContainerStyle={styles.scrollContent}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#2563eb" />}
@@ -80,14 +111,30 @@ export default function HomeScreen() {
                 {/* Active Session Status / Start Action */}
                 {activeSession ? (
                     <View style={styles.activeSessionCard}>
-                        <View style={styles.activeBadge}>
-                            <View style={styles.pulse} />
-                            <Text style={styles.activeText}>ACTIVE SESSION</Text>
+                        <View style={styles.activeBadgeRow}>
+                            <View style={styles.activeBadge}>
+                                <View style={styles.pulse} />
+                                <Text style={styles.activeText}>ACTIVE PATROL</Text>
+                            </View>
+                            <View style={styles.countdownBadge}>
+                                <Clock color="#e2e8f0" size={14} />
+                                <Text style={styles.countdownText}>
+                                    {remainingMs >= 0 ? formatDuration(remainingMs) : `+${formatDuration(Math.abs(remainingMs))}`}
+                                </Text>
+                            </View>
                         </View>
-                        <Text style={styles.activeSiteTitle}>Currently patrolling Site</Text>
-                        <Text style={styles.progressText}>
-                            Scanned {activeSession.scannedPoints?.length || 0} points
-                        </Text>
+                        <Text style={styles.activeSiteTitle}>On duty at selected site</Text>
+                        <View style={styles.sessionStatsRow}>
+                            <View style={styles.sessionStat}>
+                                <Text style={styles.sessionLabel}>Elapsed</Text>
+                                <Text style={styles.sessionValue}>{formatDuration(elapsedMs)}</Text>
+                            </View>
+                            <View style={styles.sessionDivider} />
+                            <View style={styles.sessionStat}>
+                                <Text style={styles.sessionLabel}>Scans</Text>
+                                <Text style={styles.sessionValue}>{activeSession.scannedPoints?.length || 0}</Text>
+                            </View>
+                        </View>
                         <View style={styles.activeActions}>
                             <TouchableOpacity
                                 style={styles.resumeBtn}
@@ -175,7 +222,10 @@ export default function HomeScreen() {
                                         <Text style={styles.locationText}>{site.locationName}</Text>
                                     </View>
                                 </View>
-                                <CheckCircle color="#10b981" size={20} />
+                                <View style={styles.siteBadge}>
+                                    <CheckCircle color="#10b981" size={14} />
+                                    <Text style={styles.siteBadgeText}>Ready</Text>
+                                </View>
                             </View>
                             <SiteHistoryPreview siteId={site._id} />
                         </View>
@@ -190,6 +240,37 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#020617',
+    },
+    backgroundOrbs: {
+        ...StyleSheet.absoluteFillObject,
+        zIndex: -1,
+    },
+    orbA: {
+        position: 'absolute',
+        width: 280,
+        height: 280,
+        borderRadius: 140,
+        backgroundColor: 'rgba(59, 130, 246, 0.18)',
+        top: -120,
+        left: -80,
+    },
+    orbB: {
+        position: 'absolute',
+        width: 220,
+        height: 220,
+        borderRadius: 110,
+        backgroundColor: 'rgba(16, 185, 129, 0.12)',
+        top: 160,
+        right: -100,
+    },
+    orbC: {
+        position: 'absolute',
+        width: 260,
+        height: 260,
+        borderRadius: 130,
+        backgroundColor: 'rgba(148, 163, 184, 0.08)',
+        bottom: -120,
+        left: 40,
     },
     scrollContent: {
         padding: 24,
@@ -242,12 +323,12 @@ const styles = StyleSheet.create({
     startPatrolBar: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#0f172a',
+        backgroundColor: 'rgba(15, 23, 42, 0.9)',
         padding: 20,
         borderRadius: 24,
         marginBottom: 32,
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.05)',
+        borderColor: 'rgba(255, 255, 255, 0.08)',
         gap: 16,
     },
     startIcon: {
@@ -269,13 +350,20 @@ const styles = StyleSheet.create({
         marginTop: 2,
     },
     activeSessionCard: {
-        backgroundColor: '#0f172a',
+        backgroundColor: 'rgba(15, 23, 42, 0.92)',
         padding: 24,
         borderRadius: 32,
         marginBottom: 32,
         borderWidth: 1,
         borderColor: '#1e293b',
         alignItems: 'center',
+    },
+    activeBadgeRow: {
+        width: '100%',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 12,
     },
     activeBadge: {
         flexDirection: 'row',
@@ -284,8 +372,22 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 20,
-        marginBottom: 12,
         gap: 8,
+    },
+    countdownBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        backgroundColor: 'rgba(148, 163, 184, 0.12)',
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 14,
+    },
+    countdownText: {
+        color: '#e2e8f0',
+        fontSize: 12,
+        fontWeight: '700',
+        letterSpacing: 0.5,
     },
     pulse: {
         width: 8,
@@ -303,7 +405,42 @@ const styles = StyleSheet.create({
         color: 'white',
         fontSize: 20,
         fontWeight: 'bold',
-        marginBottom: 20,
+        marginBottom: 16,
+    },
+    sessionStatsRow: {
+        width: '100%',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: 'rgba(2, 6, 23, 0.7)',
+        borderRadius: 18,
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.06)',
+        marginBottom: 16,
+    },
+    sessionStat: {
+        alignItems: 'center',
+        flex: 1,
+    },
+    sessionDivider: {
+        width: 1,
+        height: 28,
+        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    },
+    sessionLabel: {
+        color: '#94a3b8',
+        fontSize: 11,
+        fontWeight: '700',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+    },
+    sessionValue: {
+        color: 'white',
+        fontSize: 18,
+        fontWeight: '800',
+        marginTop: 4,
     },
     resumeBtn: {
         flex: 1,
@@ -384,12 +521,12 @@ const styles = StyleSheet.create({
     siteCard: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#0f172a',
+        backgroundColor: 'rgba(15, 23, 42, 0.9)',
         padding: 16,
         borderRadius: 20,
         marginBottom: 12,
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.05)',
+        borderColor: 'rgba(255, 255, 255, 0.08)',
         gap: 16,
     },
     siteIcon: {
@@ -423,5 +560,21 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: 'bold',
         marginBottom: 16,
+    },
+    siteBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        backgroundColor: 'rgba(16, 185, 129, 0.12)',
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 14,
+    },
+    siteBadgeText: {
+        color: '#10b981',
+        fontSize: 11,
+        fontWeight: '800',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
     },
 });

@@ -34,7 +34,7 @@ router.post("/validate-point", async (req, res) => {
         const points = await convex.query(api.patrolPoints.listBySite, { siteId });
 
         // Find the point matching the scanned QR code ID
-        const point = points?.find((p) => p.qrCodeId === qrCodeId || p._id === qrCodeId);
+        const point = points?.find((p) => p.qrCode === qrCodeId || p._id === qrCodeId);
 
         if (!point) {
             return res.json({ valid: false, pointId: null, pointName: null, distance: 999 });

@@ -55,18 +55,25 @@ export default function SiteSelection() {
 
     return (
         <SafeAreaView style={styles.container}>
+            <View style={styles.backgroundOrbs} pointerEvents="none">
+                <View style={styles.orbA} />
+                <View style={styles.orbB} />
+            </View>
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
                     <ArrowLeft color="white" size={24} />
                 </TouchableOpacity>
-                <Text style={styles.title}>Select Site</Text>
+                <View>
+                    <Text style={styles.title}>Select Site</Text>
+                    <Text style={styles.subTitle}>Choose a location to start patrol</Text>
+                </View>
             </View>
 
             <View style={styles.searchContainer}>
-                <Search color="#64748b" size={20} style={styles.searchIcon} />
+                <Search color="#94a3b8" size={18} style={styles.searchIcon} />
                 <TextInput
                     style={styles.searchInput}
-                    placeholder="Search patrol sites..."
+                    placeholder="Search by site or location"
                     placeholderTextColor="#64748b"
                     value={searchQuery}
                     onChangeText={setSearchQuery}
@@ -83,13 +90,19 @@ export default function SiteSelection() {
                         onPress={() => handleSelectSite(item)}
                     >
                         <View style={styles.iconContainer}>
-                            <Building2 color="#3b82f6" size={24} />
+                            <Building2 color="#3b82f6" size={22} />
                         </View>
                         <View style={styles.info}>
                             <Text style={styles.siteName}>{item.name}</Text>
                             <View style={styles.locationRow}>
-                                <MapPin color="#64748b" size={14} />
+                                <MapPin color="#94a3b8" size={14} />
                                 <Text style={styles.location}>{item.locationName}</Text>
+                            </View>
+                            <View style={styles.badgeRow}>
+                                <View style={styles.badge}>
+                                    <Text style={styles.badgeText}>Ready</Text>
+                                </View>
+                                <Text style={styles.badgeSub}>Patrol zone active</Text>
                             </View>
                         </View>
                         <ChevronRight color="#334155" size={20} />
@@ -110,6 +123,28 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#020617',
     },
+    backgroundOrbs: {
+        ...StyleSheet.absoluteFillObject,
+        zIndex: -1,
+    },
+    orbA: {
+        position: 'absolute',
+        width: 260,
+        height: 260,
+        borderRadius: 130,
+        backgroundColor: 'rgba(59, 130, 246, 0.16)',
+        top: -120,
+        right: -60,
+    },
+    orbB: {
+        position: 'absolute',
+        width: 220,
+        height: 220,
+        borderRadius: 110,
+        backgroundColor: 'rgba(148, 163, 184, 0.1)',
+        bottom: -100,
+        left: -40,
+    },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -129,16 +164,24 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: 'white',
     },
+    subTitle: {
+        color: '#94a3b8',
+        fontSize: 12,
+        fontWeight: '600',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+        marginTop: 4,
+    },
     searchContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#0f172a',
+        backgroundColor: 'rgba(15, 23, 42, 0.9)',
         marginHorizontal: 24,
         paddingHorizontal: 16,
-        borderRadius: 16,
+        borderRadius: 18,
         marginBottom: 24,
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.05)',
+        borderColor: 'rgba(255, 255, 255, 0.08)',
     },
     searchIcon: {
         marginRight: 12,
@@ -156,19 +199,19 @@ const styles = StyleSheet.create({
     siteItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#0f172a',
+        backgroundColor: 'rgba(15, 23, 42, 0.92)',
         padding: 16,
-        borderRadius: 24,
+        borderRadius: 26,
         marginBottom: 12,
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.05)',
+        borderColor: 'rgba(255, 255, 255, 0.08)',
         gap: 16,
     },
     iconContainer: {
         width: 50,
         height: 50,
         borderRadius: 18,
-        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        backgroundColor: 'rgba(59, 130, 246, 0.16)',
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -189,6 +232,29 @@ const styles = StyleSheet.create({
     location: {
         fontSize: 14,
         color: '#64748b',
+    },
+    badgeRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginTop: 8,
+    },
+    badge: {
+        backgroundColor: 'rgba(16, 185, 129, 0.12)',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    badgeText: {
+        color: '#10b981',
+        fontSize: 11,
+        fontWeight: '800',
+        textTransform: 'uppercase',
+    },
+    badgeSub: {
+        color: '#94a3b8',
+        fontSize: 11,
+        fontWeight: '600',
     },
     emptyContainer: {
         alignItems: 'center',

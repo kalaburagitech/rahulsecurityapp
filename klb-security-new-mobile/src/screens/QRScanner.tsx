@@ -139,11 +139,16 @@ export default function QRScanner() {
             <View style={styles.overlay}>
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconBtn}>
-                        <ArrowLeft color="white" size={24} />
+                        <ArrowLeft color="white" size={22} />
                     </TouchableOpacity>
-                    <Text style={styles.headerTitle}>{mode === 'setup' ? 'Setup Point' : 'Scan Patrol Point'}</Text>
+                    <View style={styles.headerCenter}>
+                        <Text style={styles.headerTitle}>{mode === 'setup' ? 'Setup Point' : 'Scan Patrol Point'}</Text>
+                        <Text style={styles.headerSubtitle}>
+                            {activeSession?.siteName || targetSite?.name || siteName || "Active Site"}
+                        </Text>
+                    </View>
                     <TouchableOpacity onPress={() => setTorch(!torch)} style={styles.iconBtn}>
-                        {torch ? <Zap color="#f59e0b" size={24} fill="#f59e0b" /> : <ZapOff color="white" size={24} />}
+                        {torch ? <Zap color="#f59e0b" size={22} fill="#f59e0b" /> : <ZapOff color="white" size={22} />}
                     </TouchableOpacity>
                 </View>
 
@@ -153,21 +158,25 @@ export default function QRScanner() {
                         <View style={styles.cornerTopRight} />
                         <View style={styles.cornerBottomLeft} />
                         <View style={styles.cornerBottomRight} />
+                        <View style={styles.scanLine} />
+                    </View>
+                    <View style={styles.scanBadge}>
+                        <Text style={styles.scanBadgeText}>{scanned ? "Processing..." : "Ready to scan"}</Text>
                     </View>
                 </View>
 
                 <View style={styles.footer}>
                     <View style={styles.infoBox}>
-                        <Info color="#3b82f6" size={20} />
+                        <Info color="#3b82f6" size={18} />
                         <Text style={styles.infoText}>
-                            {mode === 'setup' 
+                            {mode === 'setup'
                                 ? "Scan the QR code to register this point at your current location."
-                                : "Align the QR code within the frame to scan automatically."}
+                                : "Align the QR inside the frame. It will capture automatically."}
                         </Text>
                     </View>
-                    <Text style={styles.sessionInfo}>
-                        Active: {activeSession?.siteName || "Current Session"}
-                    </Text>
+                    <View style={styles.sessionPill}>
+                        <Text style={styles.sessionInfo}>Session live</Text>
+                    </View>
                 </View>
             </View>
         </View>
@@ -188,7 +197,7 @@ const styles = StyleSheet.create({
     },
     overlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.4)',
+        backgroundColor: 'rgba(0,0,0,0.35)',
         justifyContent: 'space-between',
         paddingBottom: 60,
     },
@@ -199,16 +208,30 @@ const styles = StyleSheet.create({
         paddingTop: 60,
         paddingHorizontal: 24,
     },
+    headerCenter: {
+        alignItems: 'center',
+        gap: 2,
+    },
     headerTitle: {
         color: 'white',
-        fontSize: 18,
-        fontWeight: 'bold',
+        fontSize: 16,
+        fontWeight: '800',
+        letterSpacing: 0.5,
+    },
+    headerSubtitle: {
+        color: '#cbd5f5',
+        fontSize: 11,
+        fontWeight: '600',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
     },
     iconBtn: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        backgroundColor: 'rgba(255,255,255,0.1)',
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: 'rgba(2, 6, 23, 0.6)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.12)',
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -221,6 +244,15 @@ const styles = StyleSheet.create({
         height: width * 0.7,
         borderWidth: 0,
         position: 'relative',
+    },
+    scanLine: {
+        position: 'absolute',
+        top: '50%',
+        left: 8,
+        right: 8,
+        height: 2,
+        backgroundColor: 'rgba(59, 130, 246, 0.8)',
+        borderRadius: 2,
     },
     cornerTopLeft: {
         position: 'absolute',
@@ -269,21 +301,31 @@ const styles = StyleSheet.create({
     infoBox: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(0,0,0,0.6)',
+        backgroundColor: 'rgba(2, 6, 23, 0.7)',
         padding: 16,
         borderRadius: 16,
         gap: 12,
         marginBottom: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.12)',
     },
     infoText: {
         color: 'white',
         fontSize: 14,
         flex: 1,
     },
+    sessionPill: {
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 14,
+        backgroundColor: 'rgba(16, 185, 129, 0.15)',
+        borderWidth: 1,
+        borderColor: 'rgba(16, 185, 129, 0.3)',
+    },
     sessionInfo: {
-        color: '#94a3b8',
-        fontSize: 12,
-        fontWeight: '600',
+        color: '#34d399',
+        fontSize: 11,
+        fontWeight: '800',
         textTransform: 'uppercase',
         letterSpacing: 1,
     },
@@ -302,5 +344,20 @@ const styles = StyleSheet.create({
     buttonText: {
         color: 'white',
         fontWeight: 'bold',
+    },
+    scanBadge: {
+        marginTop: 16,
+        paddingHorizontal: 14,
+        paddingVertical: 6,
+        borderRadius: 14,
+        backgroundColor: 'rgba(2, 6, 23, 0.7)',
+        borderWidth: 1,
+        borderColor: 'rgba(59, 130, 246, 0.3)',
+    },
+    scanBadgeText: {
+        color: '#cbd5f5',
+        fontSize: 12,
+        fontWeight: '700',
+        letterSpacing: 0.5,
     },
 });
