@@ -1,0 +1,168 @@
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, TextInput, Platform, Alert, ScrollView, KeyboardAvoidingView, TouchableWithoutFeedback, Keyboard } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Shield, ChevronRight } from 'lucide-react-native';
+import { useNavigation } from '@react-navigation/native';
+import { useCustomAuth } from '../../context/AuthContext';
+import { authService } from '../../services/api';
+
+export default function SignInScreen() {
+    const { login } = useCustomAuth();
+    const navigation = useNavigation<any>();
+
+    const [mobileNumber, setMobileNumber] = useState("");
+    const [otp, setOtp] = useState("");
+    const [isOtpSent, setIsOtpSent] = useState(false);
+    const [loading, setLoading] = useState(false);
+
+    const onSendOtp = async () => {
+        if (!mobileNumber || mobileNumber.length < 10) {
+            Alert.alert("Invalid Input", "Please enter a valid mobile number.");
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const response = await authService.sendOtp(mobileNumber);
+            if (response.data.success) {
+                setIsOtpSent(true);
+                // Auto-fill OTP for development as requested
+                if (response.data.otp) {
+                    setOtp(response.data.otp);
+                }
+                Alert.alert("OTP Sent", "A 6-digit code has been sent to your number.");
+            }
+        } catch (err: any) {
+            console.error(err);
+            Alert.alert("Error", err.response?.data?.error || "Failed to send OTP");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const onVerifyOtp = async (codeOverride?: string) => {
+        const codeToVerify = codeOverride || otp;
+        if (!codeToVerify || codeToVerify.length !== 6) {
+            if (!codeOverride) Alert.alert("Invalid OTP", "Please enter the 6-digit code.");
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const response = await authService.verifyOtp(mobileNumber, codeToVerify);
+            if (response.data.success) {
+                await login(response.data.user);
+            }
+        } catch (err: any) {
+            console.error(err);
+            Alert.alert("Verification Failed", err.response?.data?.error || "Invalid OTP");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#020617' }}>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={{ flex: 1 }}
+            >
+                <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+                    <ScrollView
+                        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 32, justifyContent: 'center' }}
+                        keyboardShouldPersistTaps="handled"
+                    >
+                        <View style={{ alignItems: 'center', marginBottom: 48 }}>
+                            <View style={{ width: 80, height: 80, backgroundColor: 'rgba(37, 99, 235, 0.2)', borderRadius: 32, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(37, 99, 235, 0.3)', marginBottom: 24 }}>
+                                <Shield color="#2563eb" size={40} />
+                            </View>
+                            <Text style={{ color: 'white', fontSize: 32, fontWeight: 'bold', textAlign: 'center', letterSpacing: -0.5 }}>Security OS</Text>
+                            <Text style={{ color: '#64748b', fontSize: 14, textAlign: 'center', marginTop: 8, fontWeight: '500' }}>Command Center Authentication</Text>
+                        </View>
+
+                        <View style={{ gap: 20 }}>
+                            <View style={{ backgroundColor: '#0f172a', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.1)' }}>
+                                <Text style={{ color: '#64748b', fontSize: 10, fontWeight: 'bold', marginBottom: 8, letterSpacing: 1.5, textTransform: 'uppercase' }}>Mobile Number</Text>
+                                <TextInput
+                                    autoCapitalize="none"
+                                    keyboardType="phone-pad"
+                                    value={mobileNumber}
+                                    placeholder="+91 9108080161"
+                                    placeholderTextColor="#475569"
+                                    onChangeText={(text) => setMobileNumber(text)}
+                                    style={{ color: 'white', fontSize: 16, paddingVertical: 12, paddingHorizontal: 0 }}
+                                    editable={!isOtpSent && !loading}
+                                    selectTextOnFocus={true}
+                                />
+                            </View>
+
+                            {isOtpSent && (
+                                <View style={{ backgroundColor: '#0f172a', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.1)' }}>
+                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                                        <Text style={{ color: '#64748b', fontSize: 10, fontWeight: 'bold', letterSpacing: 1.5, textTransform: 'uppercase' }}>Enter 6-Digit OTP</Text>
+                                        <Text style={{ color: '#2563eb', fontSize: 10, fontWeight: 'bold' }}>DEV OTP: {otp}</Text>
+                                    </View>
+                                    <TextInput
+                                        value={otp}
+                                        placeholder="000000"
+                                        placeholderTextColor="#475569"
+                                        keyboardType="number-pad"
+                                        maxLength={6}
+                                        onChangeText={(text) => {
+                                            setOtp(text);
+                                            if (text.length === 6) {
+                                                // Auto-verify when 6 digits are reached
+                                                setTimeout(() => onVerifyOtp(text), 100);
+                                            }
+                                        }}
+                                        style={{ color: 'white', fontSize: 24, fontWeight: 'bold', height: 48, paddingHorizontal: 0, letterSpacing: 8 }}
+                                        editable={!loading}
+                                    />
+                                </View>
+                            )}
+
+                            <TouchableOpacity
+                                onPress={isOtpSent ? () => onVerifyOtp() : onSendOtp}
+                                disabled={loading}
+                                style={{ backgroundColor: '#2563eb', padding: 18, borderRadius: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 20, shadowColor: '#2563eb', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 5 }}
+                            >
+                                <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 18, marginRight: 8 }}>
+                                    {loading ? "Processing..." : (isOtpSent ? "Verify OTP" : "Get OTP")}
+                                </Text>
+                                <ChevronRight color="white" size={20} />
+                            </TouchableOpacity>
+
+                            {isOtpSent && (
+                                <TouchableOpacity
+                                    onPress={() => {
+                                        setIsOtpSent(false);
+                                        setOtp("");
+                                    }}
+                                    disabled={loading}
+                                    style={{ marginTop: 12, alignSelf: 'center' }}
+                                >
+                                    <Text style={{ color: 'rgba(37, 99, 235, 0.7)', fontSize: 13, fontWeight: '600' }}>
+                                        Change Mobile Number
+                                    </Text>
+                                </TouchableOpacity>
+                            )}
+
+                            <TouchableOpacity
+                                onPress={() => navigation.navigate("SignUp")}
+                                style={{ marginTop: 24, alignSelf: 'center' }}
+                            >
+                                <Text style={{ color: '#64748b', fontSize: 14 }}>
+                                    Don't have an account? <Text style={{ color: '#2563eb', fontWeight: 'bold' }}>Register Here</Text>
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        <Text style={{ color: '#475569', fontSize: 10, textAlign: 'center', marginTop: 48, fontWeight: 'bold', letterSpacing: 2, textTransform: 'uppercase' }}>
+                            Authorized Access Only
+                        </Text>
+                    </ScrollView>
+                </TouchableWithoutFeedback>
+            </KeyboardAvoidingView>
+        </SafeAreaView>
+    );
+}

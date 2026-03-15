@@ -7,40 +7,31 @@ export const logLogin = mutation({
     email: v.string(),
     organizationId: v.optional(v.id("organizations")),
     ipAddress: v.optional(v.string()),
-    loginStatus: v.string(),
-    sessionId: v.optional(v.string()),
     browserInfo: v.optional(v.string()),
+    sessionId: v.optional(v.string()),
+    loginStatus: v.union(v.literal("success"), v.literal("failed"), v.literal("logout")),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("loginLogs", {
       userId: args.userId,
       email: args.email,
       organizationId: args.organizationId,
-      ipAddress: args.ipAddress,
-      loginStatus: args.loginStatus,
       loginTime: Date.now(),
-      sessionId: args.sessionId,
+      ipAddress: args.ipAddress,
       browserInfo: args.browserInfo,
+      sessionId: args.sessionId,
+      loginStatus: args.loginStatus,
     });
   },
 });
 
 export const logLogout = mutation({
   args: {
-    userId: v.id("users"),
+    logId: v.id("loginLogs"),
   },
   handler: async (ctx, args) => {
-    const lastLogin = await ctx.db
-      .query("loginLogs")
-      .withIndex("by_user", (q) => q.eq("userId", args.userId))
-      .order("desc")
-      .first();
-
-    if (lastLogin && !lastLogin.logoutTime) {
-      await ctx.db.patch(lastLogin._id, {
-        logoutTime: Date.now(),
-        loginStatus: "logout",
-      });
-    }
+    await ctx.db.patch(args.logId, {
+      logoutTime: Date.now(),
+    });
   },
 });

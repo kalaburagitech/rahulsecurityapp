@@ -53,7 +53,7 @@ export default function UserManagement() {
     const sites = useQuery(api.sites.listSitesByOrg,
         activeOrgId ? { organizationId: activeOrgId as Id<"organizations"> } : "skip"
     );
-    const allUsers = useQuery(api.users.list);
+    const allUsers = useQuery(api.users.listAll);
     const orgUsers = useQuery((api.users as any).listByOrg,
         organizationId ? { organizationId } : "skip"
     );

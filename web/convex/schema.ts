@@ -12,6 +12,7 @@ export default defineSchema({
         name: v.string(),
         email: v.optional(v.string()),
         mobileNumber: v.optional(v.string()),
+        id: v.optional(v.string()),
         role: v.union(
             v.literal("Owner"),
             v.literal("Deployment Manager"),
@@ -35,25 +36,22 @@ export default defineSchema({
             analytics: v.boolean(),
         })),
         creationTime: v.optional(v.number()),
-        id: v.optional(v.string()),
     }).index("by_clerkId", ["clerkId"])
         .index("by_org", ["organizationId"])
-        .index("by_email", ["email"])
-        .index("by_mobileNumber", ["mobileNumber"]),
+        .index("by_email", ["email"]),
 
     loginLogs: defineTable({
         userId: v.id("users"),
         email: v.string(),
-        loginTime: v.number(),
+        organizationId: v.optional(v.id("organizations")),
+        loginTime: v.optional(v.number()),
         logoutTime: v.optional(v.number()),
         ipAddress: v.optional(v.string()),
         browserInfo: v.optional(v.string()),
         sessionId: v.optional(v.string()),
-        loginStatus: v.string(), // "success", "failed", "logout"
-        organizationId: v.optional(v.id("organizations")), // Made optional for legacy data
-        status: v.optional(v.string()), // Legacy field
-    }).index("by_user", ["userId"])
-        .index("by_org", ["organizationId"]),
+        loginStatus: v.union(v.literal("success"), v.literal("failed"), v.literal("logout")),
+        failureReason: v.optional(v.string()),
+    }).index("by_user", ["userId"]),
 
     sites: defineTable({
         name: v.string(),
@@ -64,12 +62,7 @@ export default defineSchema({
         organizationId: v.id("organizations"),
         shiftStart: v.optional(v.string()), // e.g. "08:00"
         shiftEnd: v.optional(v.string()),   // e.g. "20:00"
-    }).index("by_org", ["organizationId"])
-        .searchIndex("search_name", {
-            searchField: "name",
-            filterFields: ["organizationId"],
-        }),
-
+    }).index("by_org", ["organizationId"]),
 
     patrolPoints: defineTable({
         siteId: v.id("sites"),
@@ -80,12 +73,7 @@ export default defineSchema({
         organizationId: v.id("organizations"),
         imageId: v.optional(v.string()), // storageId for setup photo
         createdAt: v.optional(v.number()),
-    }).index("by_org", ["organizationId"])
-        .index("by_site", ["siteId"])
-        .searchIndex("search_name", {
-            searchField: "name",
-            filterFields: ["organizationId", "siteId"],
-        }),
+    }).index("by_org", ["organizationId"]).index("by_site", ["siteId"]),
 
     patrolLogs: defineTable({
         userId: v.id("users"),
@@ -110,7 +98,7 @@ export default defineSchema({
         longitude: v.number(),
         createdAt: v.number(),
         organizationId: v.id("organizations"),
-    }).index("by_org", ["organizationId"]).index("by_site", ["siteId"]),
+    }).index("by_org", ["organizationId"]),
 
     issues: defineTable({
         siteId: v.id("sites"),
@@ -121,17 +109,13 @@ export default defineSchema({
         status: v.union(v.literal("open"), v.literal("closed")),
         timestamp: v.number(),
         organizationId: v.id("organizations"),
-    }).index("by_org", ["organizationId"]).index("by_site", ["siteId"]),
+    }).index("by_org", ["organizationId"]),
 
-    patrolSessions: defineTable({
-        guardId: v.id("users"),
-        userId: v.optional(v.id("users")), // Legacy field for migration
-        siteId: v.id("sites"),
-        startTime: v.number(),
-        endTime: v.optional(v.number()),
-        status: v.union(v.literal("active"), v.literal("completed")),
-        scannedPoints: v.optional(v.array(v.id("patrolPoints"))),
+    logs: defineTable({
+        type: v.union(v.literal("patrol"), v.literal("visit"), v.literal("issue")),
+        refId: v.union(v.id("patrolLogs"), v.id("visitLogs"), v.id("issues")),
         organizationId: v.id("organizations"),
+<<<<<<< HEAD
     }).index("by_org", ["organizationId"])
         .index("by_guard", ["guardId"])
         .index("by_org_status", ["organizationId", "status"]),
@@ -147,4 +131,8 @@ export default defineSchema({
         timestamp: v.number(),
         organizationId: v.id("organizations"),
     }).index("by_org", ["organizationId"]).index("by_site", ["siteId"]),
+=======
+        createdAt: v.number(),
+    }).index("by_org", ["organizationId"]),
+>>>>>>> 689b487 (code updated live working)
 });

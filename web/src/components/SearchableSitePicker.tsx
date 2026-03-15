@@ -22,17 +22,33 @@ export function SearchableSitePicker({
     const [searchQuery, setSearchQuery] = useState("");
     const dropdownRef = useRef<HTMLDivElement>(null);
 
-    // We can use the existing searchSites query since it's already paginated
-    // For the picker, we'll just show the first few results
-    const siteResults = useQuery(api.sites.searchSites, {
-        organizationId,
-        searchQuery,
-        paginationOpts: { numItems: 20, cursor: null }
+    // Fetch sites by org first, fallback to all sites so no one is missed
+    const orgSites = useQuery(api.sites.listSitesByOrg, {
+        organizationId
+    });
+    const allSitesFallback = useQuery(api.sites.listAll);
+    const allSites = orgSites && orgSites.length > 0 ? orgSites : allSitesFallback;
+
+    // Debug: Log current state
+    console.log("SearchableSitePicker - orgId:", organizationId, "orgSites:", orgSites?.length, "allSitesFallback:", allSitesFallback?.length, "allSites:", allSites?.length);
+
+    // Filter sites locally based on search query
+    const filteredSites = (allSites || []).filter(site => {
+        if (!searchQuery.trim()) return true;
+        const lower = searchQuery.toLowerCase().trim();
+        return (
+            site.name.toLowerCase().includes(lower) ||
+            site.locationName?.toLowerCase().includes(lower)
+        );
     });
 
-    const selectedSite = useQuery(api.sites.getSite, 
-        (selectedSiteId && selectedSiteId !== "all") ? { id: selectedSiteId as Id<"sites"> } : "skip"
-    );
+    // Get display name from cached results or load selected site
+    const selectedSiteFromResults = allSites?.find(site => site._id === selectedSiteId);
+    const displayName = selectedSiteId === "all" 
+        ? "All Sites" 
+        : (selectedSiteFromResults 
+            ? selectedSiteFromResults.name 
+            : (selectedSiteId ? "Loading..." : "Select Site"));
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -43,10 +59,6 @@ export function SearchableSitePicker({
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
-
-    const displayName = selectedSiteId === "all" 
-        ? "All Sites" 
-        : (selectedSite ? selectedSite.name : (selectedSiteId ? "Loading..." : "Select Site"));
 
     return (
         <div className={cn("relative w-full", className)} ref={dropdownRef}>
@@ -86,51 +98,55 @@ export function SearchableSitePicker({
                         </div>
                     </div>
 
-                    <div className="max-h-60 overflow-y-auto custom-scrollbar p-1">
-                        <button
-                            onClick={() => {
-                                onSelect("all");
-                                setIsOpen(false);
-                            }}
-                            className={cn(
-                                "w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors mb-1",
-                                selectedSiteId === "all" ? "bg-primary/20 text-primary font-medium" : "text-white/70 hover:bg-white/5 hover:text-white"
-                            )}
-                        >
-                            <span>All Sites</span>
-                            {selectedSiteId === "all" && <Check className="w-4 h-4" />}
-                        </button>
-
-                        {siteResults?.page.map((site: any) => (
-                            <button
-                                key={site._id}
-                                onClick={() => {
-                                    onSelect(site._id);
-                                    setIsOpen(false);
-                                }}
-                                className={cn(
-                                    "w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors mb-1",
-                                    selectedSiteId === site._id ? "bg-primary/20 text-primary font-medium" : "text-white/70 hover:bg-white/5 hover:text-white"
-                                )}
-                            >
-                                <div className="flex flex-col items-start translate-x-0">
-                                    <span className="truncate">{site.name}</span>
-                                    <span className="text-[10px] text-muted-foreground truncate">{site.locationName}</span>
-                                </div>
-                                {selectedSiteId === site._id && <Check className="w-4 h-4" />}
-                            </button>
-                        ))}
-
-                        {siteResults === undefined && (
+                    <div className="max-h-[600px] overflow-y-auto custom-scrollbar p-1">
+                        {allSites === undefined ? (
                             <div className="flex items-center justify-center py-8">
                                 <Loader2 className="w-5 h-5 text-primary animate-spin" />
                             </div>
-                        )}
+                        ) : (
+                            <>
+                                <button
+                                    onClick={() => {
+                                        onSelect("all");
+                                        setIsOpen(false);
+                                    }}
+                                    className={cn(
+                                        "w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors mb-1",
+                                        selectedSiteId === "all" ? "bg-primary/20 text-primary font-medium" : "text-white/70 hover:bg-white/5 hover:text-white"
+                                    )}
+                                >
+                                    <span>All Sites</span>
+                                    {selectedSiteId === "all" && <Check className="w-4 h-4" />}
+                                </button>
 
-                        {siteResults?.page.length === 0 && searchQuery && (
-                            <div className="text-center py-6 text-sm text-muted-foreground">
-                                No sites found matching "{searchQuery}"
-                            </div>
+                                {filteredSites.length > 0 ? (
+                                    filteredSites.map((site: any) => (
+                                        <button
+                                            key={site._id}
+                                            onClick={() => {
+                                                onSelect(site._id);
+                                                setIsOpen(false);
+                                            }}
+                                            className={cn(
+                                                "w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors mb-1",
+                                                selectedSiteId === site._id ? "bg-primary/20 text-primary font-medium" : "text-white/70 hover:bg-white/5 hover:text-white"
+                                            )}
+                                        >
+                                            <div className="flex flex-col items-start translate-x-0">
+                                                <span className="truncate">{site.name}</span>
+                                                <span className="text-[10px] text-muted-foreground truncate">{site.locationName}</span>
+                                            </div>
+                                            {selectedSiteId === site._id && <Check className="w-4 h-4" />}
+                                        </button>
+                                    ))
+                                ) : (
+                                    searchQuery && (
+                                        <div className="text-center py-6 text-sm text-muted-foreground">
+                                            No sites found matching "{searchQuery}"
+                                        </div>
+                                    )
+                                )}
+                            </>
                         )}
                     </div>
                 </div>

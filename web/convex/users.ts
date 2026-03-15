@@ -1,39 +1,57 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
+/* ------------------------------------------------ */
+/* GET USER BY CLERK ID */
+/* ------------------------------------------------ */
+
 export const getByClerkId = query({
     args: { clerkId: v.string() },
     handler: async (ctx, args) => {
-        return await ctx.db
+        const user = await ctx.db
             .query("users")
             .withIndex("by_clerkId", (q) => q.eq("clerkId", args.clerkId))
-            .unique();
+            .first();
+
+        return user ?? null;
     },
 });
+
+/* ------------------------------------------------ */
+/* GET USER BY EMAIL */
+/* ------------------------------------------------ */
 
 export const getByEmail = query({
     args: { email: v.string() },
     handler: async (ctx, args) => {
-        return await ctx.db
+        const user = await ctx.db
             .query("users")
             .withIndex("by_email", (q) => q.eq("email", args.email))
-            .unique();
+            .first();
+
+        return user ?? null;
     },
 });
+
+/* ------------------------------------------------ */
+/* GET USER BY MOBILE */
+/* ------------------------------------------------ */
 
 export const getByMobileNumber = query({
     args: { mobileNumber: v.string() },
     handler: async (ctx, args) => {
-        return await ctx.db
-            .query("users")
-            .withIndex("by_mobileNumber", (q) => q.eq("mobileNumber", args.mobileNumber))
-            .unique();
+        const users = await ctx.db.query("users").collect();
+        return users.find((u) => u.mobileNumber === args.mobileNumber) ?? null;
     },
 });
 
+/* ------------------------------------------------ */
+/* CREATE USER */
+/* ------------------------------------------------ */
+
 export const create = mutation({
     args: {
-        clerkId: v.optional(v.string()), // Made optional for auto-generation
+        clerkId: v.optional(v.string()),
         name: v.string(),
         role: v.union(
             v.literal("Owner"),
@@ -49,18 +67,37 @@ export const create = mutation({
         siteIds: v.optional(v.array(v.id("sites"))),
         email: v.optional(v.string()),
         mobileNumber: v.optional(v.string()),
-        permissions: v.optional(v.object({
-            users: v.boolean(),
-            sites: v.boolean(),
-            patrolPoints: v.boolean(),
-            patrolLogs: v.boolean(),
-            visitLogs: v.boolean(),
-            issues: v.boolean(),
-            analytics: v.boolean(),
-        })),
+        permissions: v.optional(
+            v.object({
+                users: v.boolean(),
+                sites: v.boolean(),
+                patrolPoints: v.boolean(),
+                patrolLogs: v.boolean(),
+                visitLogs: v.boolean(),
+                issues: v.boolean(),
+                analytics: v.boolean(),
+            })
+        ),
     },
+
     handler: async (ctx, args) => {
-        const clerkId = args.clerkId || `pending_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+        /* Prevent duplicate Clerk users */
+
+        if (args.clerkId) {
+            const existing = await ctx.db
+                .query("users")
+                .withIndex("by_clerkId", (q) => q.eq("clerkId", args.clerkId))
+                .first();
+
+            if (existing) {
+                return existing._id;
+            }
+        }
+
+        const clerkId =
+            args.clerkId ??
+            `pending_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+
         return await ctx.db.insert("users", {
             clerkId,
             name: args.name,
@@ -73,6 +110,10 @@ export const create = mutation({
         });
     },
 });
+
+/* ------------------------------------------------ */
+/* UPDATE USER */
+/* ------------------------------------------------ */
 
 export const update = mutation({
     args: {
@@ -92,21 +133,29 @@ export const update = mutation({
         siteIds: v.optional(v.array(v.id("sites"))),
         email: v.optional(v.string()),
         mobileNumber: v.optional(v.string()),
-        permissions: v.optional(v.object({
-            users: v.boolean(),
-            sites: v.boolean(),
-            patrolPoints: v.boolean(),
-            patrolLogs: v.boolean(),
-            visitLogs: v.boolean(),
-            issues: v.boolean(),
-            analytics: v.boolean(),
-        })),
+        permissions: v.optional(
+            v.object({
+                users: v.boolean(),
+                sites: v.boolean(),
+                patrolPoints: v.boolean(),
+                patrolLogs: v.boolean(),
+                visitLogs: v.boolean(),
+                issues: v.boolean(),
+                analytics: v.boolean(),
+            })
+        ),
     },
+
     handler: async (ctx, args) => {
         const { id, ...data } = args;
         await ctx.db.patch(id, data);
+        return id;
     },
 });
+
+/* ------------------------------------------------ */
+/* DELETE USER */
+/* ------------------------------------------------ */
 
 export const remove = mutation({
     args: { id: v.id("users") },
@@ -115,14 +164,23 @@ export const remove = mutation({
     },
 });
 
-export const list = query({
+/* ------------------------------------------------ */
+/* LIST ALL USERS */
+/* ------------------------------------------------ */
+
+export const listAll = query({
     handler: async (ctx) => {
         return await ctx.db.query("users").collect();
     },
 });
 
+/* ------------------------------------------------ */
+/* LIST USERS BY ORGANIZATION */
+/* ------------------------------------------------ */
+
 export const listByOrg = query({
     args: { organizationId: v.id("organizations") },
+
     handler: async (ctx, args) => {
         return await ctx.db
             .query("users")
@@ -131,10 +189,16 @@ export const listByOrg = query({
     },
 });
 
+/* ------------------------------------------------ */
+/* LIST USERS BY SITE */
+/* ------------------------------------------------ */
+
 export const listBySite = query({
     args: { siteId: v.id("sites") },
+
     handler: async (ctx, args) => {
         const site = await ctx.db.get(args.siteId);
+
         if (!site) return [];
 
         const users = await ctx.db
@@ -142,31 +206,28 @@ export const listBySite = query({
             .withIndex("by_org", (q) => q.eq("organizationId", site.organizationId))
             .collect();
 
-        return users.filter((user) =>
-            !user.siteIds || user.siteIds.includes(args.siteId)
+        return users.filter(
+            (user) => !user.siteIds || user.siteIds.includes(args.siteId)
         );
     },
 });
 
+
 export const countByOrg = query({
-    args: { 
-        organizationId: v.optional(v.id("organizations")),
-        siteId: v.optional(v.id("sites"))
+    args: {
+        organizationId: v.id("organizations"),
+        siteId: v.optional(v.id("sites")),
     },
     handler: async (ctx, args) => {
-        const orgId = args.organizationId;
-        const sId = args.siteId;
-        
-        const q = orgId
-            ? ctx.db.query("users").withIndex("by_org", (q) => q.eq("organizationId", orgId))
-            : ctx.db.query("users");
-            
-        const users = await q.collect();
-        
-        if (sId) {
-            return users.filter(user => user.siteIds?.includes(sId)).length;
+        let users = await ctx.db
+            .query("users")
+            .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
+            .collect();
+
+        if (args.siteId) {
+            users = users.filter((user) => user.siteIds?.includes(args.siteId));
         }
-        
+
         return users.length;
     },
 });

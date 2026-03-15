@@ -1,0 +1,549 @@
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Image, ActivityIndicator, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+// import { useQuery, useMutation } from 'convex/react';
+import { usePatrolStore } from '../store/usePatrolStore';
+import * as Location from 'expo-location';
+import { Shield, Camera, MapPin, MessageSquare, CheckCircle2, ArrowLeft, Trash2, AlertTriangle } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
+// import { api } from '../services/convex';
+import { logService } from '../services/api';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { useCustomAuth } from '../context/AuthContext';
+import { uploadImage } from '../services/upload';
+
+export default function PatrolForm() {
+    const route = useRoute<any>();
+    const navigation = useNavigation<any>();
+    const { qrCode } = route.params || {};
+    const { userId, organizationId } = useCustomAuth();
+    const activeSession = usePatrolStore((state) => state.activeSession);
+    const [location, setLocation] = useState<any>(null);
+    const [validation, setValidation] = useState<any>(undefined);
+
+    useEffect(() => {
+        if (activeSession?.siteId && qrCode && location) {
+            logService.validatePatrolPoint(
+                activeSession.siteId as string,
+                qrCode,
+                location.coords.latitude,
+                location.coords.longitude,
+                userId as string
+            ).then(res => setValidation(res.data))
+             .catch(err => {
+                 console.error("Validation error:", err);
+                 // Mock a failed validation
+                 setValidation({ valid: false, distance: 0 });
+             });
+        } else if (!location) {
+             // Still waiting for location
+        } else {
+             // Missing other info 
+             setValidation({ valid: false, distance: 0 });
+        }
+    }, [activeSession, qrCode, location, userId]);
+
+    const [comment, setComment] = useState('');
+    const [image, setImage] = useState<string | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [hasIssue, setHasIssue] = useState(false);
+    const [issuePriority, setIssuePriority] = useState<'Low' | 'Medium' | 'High'>('Medium');
+
+    const createLog = async (data: any) => {
+        return logService.createPatrolLog(data);
+    };
+    const updateSessionPoints = async (data: any) => { console.log("Mocked updateSessionPoints", data); };
+    const generateUploadUrl = async () => { console.log("Mocked upload url"); return ""; };
+
+    useEffect(() => {
+        (async () => {
+            let { status } = await Location.requestForegroundPermissionsAsync();
+            if (status !== 'granted') return;
+            let currentLoc = await Location.getCurrentPositionAsync({});
+            setLocation(currentLoc);
+        })();
+    }, []);
+
+    const pickImage = async () => {
+        let result = await ImagePicker.launchCameraAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [4, 3],
+            quality: 0.4,
+        });
+
+        if (!result.canceled) {
+            setImage(result.assets[0].uri);
+        }
+    };
+
+    const handleSubmit = async () => {
+        if (!comment && !image) {
+            Alert.alert("Evidence Required", "Please provide a comment or a photo.");
+            return;
+        }
+
+        setLoading(true);
+        try {
+            let storageId = undefined;
+            if (image) {
+                storageId = await uploadImage(image, generateUploadUrl);
+            }
+
+            await createLog({
+                userId: userId as any,
+                siteId: activeSession?.siteId as any,
+                patrolPointId: validation?.pointId,
+                comment,
+                latitude: location?.coords.latitude || 0,
+                longitude: location?.coords.longitude || 0,
+                distance: validation?.distance || 0,
+                organizationId: organizationId as any,
+                imageId: storageId,
+                issueDetails: hasIssue ? {
+                    title: "Manual Issue Report",
+                    priority: issuePriority
+                } : undefined
+            });
+
+            // Update session points to mark this point as scanned
+            if (activeSession?.id && validation?.pointId) {
+                await updateSessionPoints({
+                    sessionId: activeSession.id as any,
+                    pointId: validation.pointId
+                });
+            }
+
+            Alert.alert("Success", "Patrol point logged successfully!");
+            navigation.navigate('MainTabs');
+        } catch (error: any) {
+            Alert.alert("Error", error.message || "Failed to log patrol point.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (validation === undefined) {
+        return (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#3b82f6" />
+            </View>
+        );
+    }
+
+    return (
+        <SafeAreaView style={styles.container}>
+            <View style={styles.header}>
+                <View style={styles.headerLeft}>
+                    <Shield color="#3b82f6" size={32} />
+                    <View>
+                        <Text style={styles.headerTitle}>Log Patrol Point</Text>
+                        <Text style={styles.progressSubtitle}>
+                            Scanned {activeSession?.scannedPointIds?.length || 0} points
+                        </Text>
+                    </View>
+                </View>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeBtn}>
+                    <Text style={styles.closeBtnText}>Cancel</Text>
+                </TouchableOpacity>
+            </View>
+
+            <ScrollView contentContainerStyle={styles.scrollContent}>
+                <View style={styles.statusCard}>
+                    <View style={[styles.statusIndicator, validation?.valid ? styles.statusValid : styles.statusInvalid]} />
+                    <View style={styles.statusInfo}>
+                        <CheckCircle2 color={validation?.valid ? "#22c55e" : "#64748b"} size={20} />
+                        <View>
+                            <Text style={styles.statusLabel}>Scanner Status</Text>
+                            <Text style={styles.statusValue}>{validation?.valid ? 'Valid Point Detected' : 'Unauthorized QR Code'}</Text>
+                        </View>
+                    </View>
+                    <View style={styles.distanceBadge}>
+                        <Text style={[styles.distanceText, (validation?.distance || 0) > 100 && styles.distanceTextWarning]}>
+                            {validation?.distance?.toFixed(1) || 0}m away
+                        </Text>
+                    </View>
+                </View>
+
+                {(validation?.distance || 0) > 100 && (
+                    <View style={styles.warningBox}>
+                        <AlertTriangle color="#f59e0b" size={20} />
+                        <Text style={styles.warningText}>Outside 100m range! This will be flagged.</Text>
+                    </View>
+                )}
+
+                <Text style={styles.sectionLabel}>Evidence Photo</Text>
+                <View style={styles.imageSection}>
+                    {image ? (
+                        <View style={styles.imagePreviewContainer}>
+                            <Image source={{ uri: image }} style={styles.imagePreview} />
+                            <TouchableOpacity style={styles.removeImageBtn} onPress={() => setImage(null)}>
+                                <Trash2 color="white" size={20} />
+                            </TouchableOpacity>
+                        </View>
+                    ) : (
+                        <TouchableOpacity style={styles.captureBtn} onPress={pickImage}>
+                            <Camera color="#3b82f6" size={40} />
+                            <Text style={styles.captureBtnText}>Capture Evidence Photo</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
+
+                <View style={styles.issueSection}>
+                    <View style={styles.issueHeader}>
+                        <Text style={styles.sectionLabel}>Report an Issue?</Text>
+                        <TouchableOpacity
+                            style={[styles.toggleBtn, hasIssue && styles.toggleBtnActive]}
+                            onPress={() => setHasIssue(!hasIssue)}
+                        >
+                            <View style={[styles.toggleCircle, hasIssue && styles.toggleCircleActive]} />
+                        </TouchableOpacity>
+                    </View>
+
+                    {hasIssue && (
+                        <View style={styles.priorityGrid}>
+                            {(['Low', 'Medium', 'High'] as const).map((p) => (
+                                <TouchableOpacity
+                                    key={p}
+                                    style={[styles.priorityBtn, issuePriority === p && styles.priorityBtnActive]}
+                                    onPress={() => setIssuePriority(p)}
+                                >
+                                    <Text style={[styles.priorityText, issuePriority === p && styles.priorityTextActive]}>
+                                        {p}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    )}
+                </View>
+
+                <Text style={styles.sectionLabel}>Patrol Comments</Text>
+                <View style={styles.commentContainer}>
+                    <MessageSquare color="#64748b" size={20} style={styles.commentIcon} />
+                    <TextInput
+                        style={styles.textInput}
+                        placeholder="Add your observation at this point..."
+                        placeholderTextColor="#475569"
+                        multiline
+                        numberOfLines={4}
+                        value={comment}
+                        onChangeText={setComment}
+                    />
+                </View>
+
+                <View style={styles.locationSummary}>
+                    <View style={styles.locationSummaryInner}>
+                        <MapPin color="#64748b" size={20} />
+                        <Text style={styles.locationSummaryText}>GPS Coordinates Captured</Text>
+                    </View>
+                </View>
+
+                <TouchableOpacity
+                    style={[styles.submitBtn, (!validation?.valid || loading) && styles.submitBtnDisabled]}
+                    onPress={handleSubmit}
+                    disabled={!validation?.valid || loading}
+                >
+                    {loading ? (
+                        <ActivityIndicator color="white" />
+                    ) : (
+                        <>
+                            <Shield color="white" size={24} />
+                            <Text style={styles.submitBtnText}>CONFIRM & LOG POINT</Text>
+                        </>
+                    )}
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.skipBtn} onPress={() => navigation.goBack()}>
+                    <Text style={styles.skipBtnText}>Discard Scan</Text>
+                </TouchableOpacity>
+            </ScrollView>
+        </SafeAreaView>
+    );
+}
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: '#020617',
+    },
+    loadingContainer: {
+        flex: 1,
+        backgroundColor: '#020617',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 24,
+        gap: 16,
+    },
+    headerTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: 'white',
+        flex: 1,
+    },
+    closeBtn: {
+        padding: 8,
+    },
+    closeBtnText: {
+        color: '#64748b',
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    scrollContent: {
+        padding: 24,
+        paddingTop: 0,
+    },
+    statusCard: {
+        backgroundColor: '#0f172a',
+        borderRadius: 24,
+        padding: 20,
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.05)',
+        marginBottom: 32,
+        overflow: 'hidden',
+    },
+    statusIndicator: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        bottom: 0,
+        width: 6,
+    },
+    statusValid: {
+        backgroundColor: '#22c55e',
+    },
+    statusInvalid: {
+        backgroundColor: '#ef4444',
+    },
+    statusInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        flex: 1,
+    },
+    statusLabel: {
+        fontSize: 12,
+        color: '#64748b',
+        fontWeight: 'bold',
+        textTransform: 'uppercase',
+    },
+    statusValue: {
+        fontSize: 16,
+        color: 'white',
+        fontWeight: '600',
+        marginTop: 2,
+    },
+    distanceBadge: {
+        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 12,
+    },
+    distanceText: {
+        color: '#3b82f6',
+        fontSize: 12,
+        fontWeight: 'bold',
+    },
+    sectionLabel: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: '#94a3b8',
+        marginBottom: 16,
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+    },
+    imageSection: {
+        marginBottom: 32,
+    },
+    captureBtn: {
+        height: 180,
+        backgroundColor: '#0f172a',
+        borderRadius: 24,
+        borderStyle: 'dashed',
+        borderWidth: 2,
+        borderColor: '#1e293b',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 16,
+    },
+    captureBtnText: {
+        color: '#64748b',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    imagePreviewContainer: {
+        height: 180,
+        borderRadius: 24,
+        overflow: 'hidden',
+        position: 'relative',
+    },
+    imagePreview: {
+        width: '100%',
+        height: '100%',
+    },
+    removeImageBtn: {
+        position: 'absolute',
+        top: 12,
+        right: 12,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: 'rgba(239, 68, 68, 0.8)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    commentContainer: {
+        backgroundColor: '#0f172a',
+        borderRadius: 24,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: '#1e293b',
+        minHeight: 120,
+        flexDirection: 'row',
+        gap: 12,
+        marginBottom: 32,
+    },
+    commentIcon: {
+        marginTop: 4,
+    },
+    textInput: {
+        flex: 1,
+        color: 'white',
+        fontSize: 16,
+        textAlignVertical: 'top',
+        paddingTop: 0,
+    },
+    locationSummary: {
+        backgroundColor: '#0f172a',
+        padding: 16,
+        borderRadius: 20,
+        marginBottom: 40,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.05)',
+    },
+    locationSummaryInner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    locationSummaryText: {
+        color: '#64748b',
+        fontSize: 14,
+        fontWeight: '500',
+    },
+    submitBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#2563eb',
+        height: 64,
+        borderRadius: 24,
+        gap: 12,
+        marginBottom: 16,
+    },
+    submitBtnDisabled: {
+        backgroundColor: '#1e293b',
+        opacity: 0.5,
+    },
+    submitBtnText: {
+        color: 'white',
+        fontSize: 18,
+        fontWeight: '800',
+        letterSpacing: 1,
+    },
+    skipBtn: {
+        padding: 16,
+        alignItems: 'center',
+    },
+    skipBtnText: {
+        color: '#475569',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    headerLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        flex: 1,
+    },
+    progressSubtitle: {
+        color: '#64748b',
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    distanceTextWarning: {
+        color: '#f59e0b',
+    },
+    warningBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        backgroundColor: 'rgba(245, 158, 11, 0.1)',
+        padding: 12,
+        borderRadius: 12,
+        marginBottom: 24,
+        borderWidth: 1,
+        borderColor: 'rgba(245, 158, 11, 0.2)',
+    },
+    warningText: {
+        color: '#f59e0b',
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    issueSection: {
+        marginBottom: 32,
+    },
+    issueHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    toggleBtn: {
+        width: 50,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: '#1e293b',
+        padding: 4,
+    },
+    toggleBtnActive: {
+        backgroundColor: '#2563eb',
+    },
+    toggleCircle: {
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+        backgroundColor: 'white',
+    },
+    toggleCircleActive: {
+        alignSelf: 'flex-end',
+    },
+    priorityGrid: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    priorityBtn: {
+        flex: 1,
+        paddingVertical: 12,
+        borderRadius: 12,
+        backgroundColor: '#0f172a',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#1e293b',
+    },
+    priorityBtnActive: {
+        backgroundColor: '#2563eb',
+        borderColor: '#2563eb',
+    },
+    priorityText: {
+        color: '#64748b',
+        fontWeight: 'bold',
+    },
+    priorityTextActive: {
+        color: 'white',
+    },
+});
