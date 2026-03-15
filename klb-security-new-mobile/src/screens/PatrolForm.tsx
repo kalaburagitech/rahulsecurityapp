@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 // import { useQuery, useMutation } from 'convex/react';
 import { usePatrolStore } from '../store/usePatrolStore';
 import * as Location from 'expo-location';
-import { Shield, Camera, MapPin, MessageSquare, CheckCircle2, ArrowLeft, Trash2, AlertTriangle } from 'lucide-react-native';
+import { Shield, Camera, MapPin, MessageSquare, CheckCircle2, Trash2, AlertTriangle } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 // import { api } from '../services/convex';
 import { logService } from '../services/api';
@@ -20,6 +20,7 @@ export default function PatrolForm() {
     const activeSession = usePatrolStore((state) => state.activeSession);
     const [location, setLocation] = useState<any>(null);
     const [validation, setValidation] = useState<any>(undefined);
+    const [locationError, setLocationError] = useState<string | null>(null);
 
     useEffect(() => {
         if (activeSession?.siteId && qrCode && location) {
@@ -56,16 +57,43 @@ export default function PatrolForm() {
     const generateUploadUrl = async () => { console.log("Mocked upload url"); return ""; };
 
     useEffect(() => {
+        let subscription: Location.LocationSubscription | null = null;
         (async () => {
-            let { status } = await Location.requestForegroundPermissionsAsync();
-            if (status !== 'granted') return;
-            let currentLoc = await Location.getCurrentPositionAsync({});
-            setLocation(currentLoc);
+            const { status } = await Location.requestForegroundPermissionsAsync();
+            if (status !== 'granted') {
+                setLocationError('Location permission denied');
+                return;
+            }
+            try {
+                const currentLoc = await Location.getCurrentPositionAsync({});
+                setLocation(currentLoc);
+                subscription = await Location.watchPositionAsync(
+                    {
+                        accuracy: Location.Accuracy.High,
+                        timeInterval: 3000,
+                        distanceInterval: 3,
+                    },
+                    (loc) => setLocation(loc)
+                );
+            } catch (err) {
+                console.error("Location error:", err);
+                setLocationError('Unable to get location');
+            }
         })();
+
+        return () => {
+            subscription?.remove();
+        };
     }, []);
 
     const pickImage = async () => {
-        let result = await ImagePicker.launchCameraAsync({
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+            Alert.alert("Camera Permission", "Camera permission is required to take a photo.");
+            return;
+        }
+
+        const result = await ImagePicker.launchCameraAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsEditing: true,
             aspect: [4, 3],
@@ -82,12 +110,24 @@ export default function PatrolForm() {
             Alert.alert("Evidence Required", "Please provide a comment or a photo.");
             return;
         }
+        if (!validation?.valid || (validation?.distance ?? 999) > 100) {
+            Alert.alert("Invalid Scan", "Please scan a valid patrol point inside 100m.");
+            return;
+        }
 
         setLoading(true);
         try {
             let storageId = undefined;
             if (image) {
-                storageId = await uploadImage(image, generateUploadUrl);
+                try {
+                    storageId = await uploadImage(image, generateUploadUrl);
+                } catch (uploadErr: any) {
+                    console.error("Image upload failed:", uploadErr);
+                    if (!comment) {
+                        throw uploadErr;
+                    }
+                    Alert.alert("Image Upload Failed", "Continuing without photo.");
+                }
             }
 
             await createLog({
@@ -117,7 +157,10 @@ export default function PatrolForm() {
             Alert.alert("Success", "Patrol point logged successfully!");
             navigation.navigate('MainTabs');
         } catch (error: any) {
-            Alert.alert("Error", error.message || "Failed to log patrol point.");
+            const status = error?.response?.status;
+            const data = error?.response?.data;
+            console.error("Create log error:", status, data || error);
+            Alert.alert("Error", error?.response?.data?.error || error.message || "Failed to log patrol point.");
         } finally {
             setLoading(false);
         }
@@ -234,14 +277,16 @@ export default function PatrolForm() {
                 <View style={styles.locationSummary}>
                     <View style={styles.locationSummaryInner}>
                         <MapPin color="#64748b" size={20} />
-                        <Text style={styles.locationSummaryText}>GPS Coordinates Captured</Text>
+                        <Text style={styles.locationSummaryText}>
+                            {locationError ? `GPS Error: ${locationError}` : "GPS Coordinates Captured"}
+                        </Text>
                     </View>
                 </View>
 
                 <TouchableOpacity
-                    style={[styles.submitBtn, (!validation?.valid || loading) && styles.submitBtnDisabled]}
+                    style={[styles.submitBtn, (!validation?.valid || (validation?.distance ?? 999) > 100 || loading) && styles.submitBtnDisabled]}
                     onPress={handleSubmit}
-                    disabled={!validation?.valid || loading}
+                    disabled={!validation?.valid || (validation?.distance ?? 999) > 100 || loading}
                 >
                     {loading ? (
                         <ActivityIndicator color="white" />
