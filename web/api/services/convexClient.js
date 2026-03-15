@@ -9,10 +9,10 @@ const __dirname = path.dirname(__filename);
 // Load .env.local from the web directory
 dotenv.config({ path: path.resolve(__dirname, "../../.env.local") });
 
-const convexUrl = process.env.VITE_CONVEX_URL;
+const convexUrl = process.env.VITE_CONVEX_URL || process.env.CONVEX_URL;
 
 if (!convexUrl) {
-    throw new Error("VITE_CONVEX_URL is not defined in .env.local");
+    throw new Error("Convex URL missing. Set VITE_CONVEX_URL or CONVEX_URL in environment.");
 }
 
 const client = new ConvexClient(convexUrl);

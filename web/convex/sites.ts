@@ -71,6 +71,29 @@ export const listSitesByOrg = query({
     },
 });
 
+export const listSitesByUser = query({
+    args: { userId: v.id("users") },
+    handler: async (ctx, args) => {
+        const user = await ctx.db.get(args.userId);
+        if (!user) return [];
+
+        const ids = new Set<string>();
+        if ((user as any).siteId) ids.add((user as any).siteId as string);
+        if (Array.isArray((user as any).siteIds)) {
+            for (const id of (user as any).siteIds as string[]) {
+                if (id) ids.add(id);
+            }
+        }
+
+        const sites = [];
+        for (const id of ids) {
+            const site = await ctx.db.get(id as any);
+            if (site) sites.push(site);
+        }
+        return sites;
+    },
+});
+
 export const getSite = query({
     args: { id: v.id("sites") },
     handler: async (ctx, args) => {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { Layout } from "../../components/Layout";
 import { AlertTriangle, Clock, MapPin, CheckCircle2, ShieldAlert, Loader2 } from "lucide-react";
 import { cn } from "../../lib/utils";
@@ -28,13 +28,15 @@ export default function IssueTracker() {
 
     const resolveIssue = useMutation(api.logs.resolveIssue);
 
-    const handleResolve = async (issueId: any) => {
-        try {
-            await resolveIssue({ issueId });
-        } catch (error) {
-            console.error("Failed to resolve issue:", error);
-        }
-    };
+   const handleResolve = async (issueId: any) => {
+    try {
+        await resolveIssue({ issueId });
+        toast.success("Issue resolved successfully");
+    } catch (error) {
+        console.error("Failed to resolve issue:", error);
+        toast.error("Failed to resolve issue");
+    }
+};
 
     // Calculate Stats
     const stats = React.useMemo(() => {
